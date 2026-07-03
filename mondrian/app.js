@@ -10,6 +10,15 @@
     struct: 'mond.struct',
   };
 
+  // storage schema v2 (zero state) — wipe any pre-v2 data, e.g. old sample seeds
+  const LS_VER = '2';
+  if (localStorage.getItem('mond.v') !== LS_VER) {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('mond.')) localStorage.removeItem(k);
+    }
+    localStorage.setItem('mond.v', LS_VER);
+  }
+
   const CATS = {
     red: { hex: '#d92311', label: 'urgent' },
     blue: { hex: '#1a4ba0', label: 'work / project' },
@@ -963,46 +972,14 @@
     }
   }
 
-  // ---------- samples ----------
-
-  function sampleLayers() {
-    return {
-      today: V(0.6,
-        H(0.44,
-          L(mkTask('Client Presentation', 'red', { due: localISO(0), priority: 'high' })),
-          H(0.52,
-            L(mkTask('Gym', 'yellow', { due: localISO(0) })),
-            L(mkTask('Design Review', 'blue', {
-              due: localISO(0),
-              subs: [{ t: 'Collect feedback', done: false }, { t: 'Revise slides', done: false }, { t: 'Share with team', done: false }],
-            })))),
-        H(0.34,
-          L(mkTask('Project Research', 'blue', { due: localISO(2) })),
-          H(0.5,
-            L(mkTask('Email Inbox', 'white', { priority: 'low' })),
-            V(0.48,
-              L(mkTask('Call Sam', 'white', { priority: 'low' })),
-              L(mkTask('Grocery Run', 'yellow')))))),
-      work: H(0.55,
-        V(0.6,
-          L(mkTask('Quarterly report', 'blue', { due: localISO(-1), priority: 'high' })),
-          L(mkTask('1:1 prep', 'blue', { due: localISO(-2) }))),
-        V(0.4,
-          L(mkTask('Ship landing page', 'blue', { due: localISO(3) })),
-          L(null))),
-      home: V(0.6,
-        H(0.55, L(mkTask('Fix the tap', 'yellow')), L(null)),
-        H(0.45, L(mkTask('Plant the herbs', 'yellow')), L(null))),
-      ideas: V(0.6,
-        H(0.55, L(mkTask('App with no lists', 'blue')), L(null)),
-        H(0.45, L(null), L(mkTask('Paint the hallway', 'yellow')))),
-      waiting: H(0.55,
-        V(0.6, L(mkTask('Passport renewal', 'red', { due: localISO(14) })), L(null)),
-        V(0.4, L(null), L(null))),
-    };
-  }
-
   // ---------- boot ----------
+
+  function emptyLayers() {
+    // each layer starts as one uninterrupted block of open space
+    const out = {};
+    for (const Lm of LAYER_META) out[Lm.id] = L(null);
+    return out;
+  }
 
   function load() {
     try {
@@ -1012,7 +989,19 @@
         if (LAYER_META.every((l) => layers[l.id])) return;
       }
     } catch { /* fall through */ }
-    layers = sampleLayers();
+    layers = emptyLayers();
+  }
+
+  // ---------- onboarding ----------
+
+  const OB_KEY = 'mond.seen';
+  const onboard = $('#onboard');
+  if (onboard && !localStorage.getItem(OB_KEY)) {
+    onboard.hidden = false;
+    $('#onboardGo').addEventListener('click', () => {
+      localStorage.setItem(OB_KEY, '1');
+      onboard.hidden = true;
+    });
   }
 
   load();

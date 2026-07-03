@@ -11,6 +11,15 @@
     archive: 'basq.archive',
   };
 
+  // storage schema v2 (zero state) — wipe any pre-v2 data, e.g. old sample seeds
+  const LS_VER = '2';
+  if (localStorage.getItem('basq.v') !== LS_VER) {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('basq.')) localStorage.removeItem(k);
+    }
+    localStorage.setItem('basq.v', LS_VER);
+  }
+
   const COLORS = {
     black: '#141414',
     red: '#c92f1e',
@@ -1201,31 +1210,6 @@
     }
   }
 
-  // ---------- samples ----------
-
-  function sampleTasks() {
-    const mk = (title, color, layer, priority, x, y, extra = {}) => ({
-      id: crypto.randomUUID(),
-      title, color, layer, priority, x, y,
-      seed: Math.floor(Math.random() * 2 ** 31),
-      due: null, notes: '', done: false, doneAt: null, cluster: null,
-      strokes: null, strokesW: 0, strokesH: 0,
-      createdAt: Date.now() - 3 * 864e5,
-      ...extra,
-    });
-    const crew = crypto.randomUUID();
-    return [
-      mk('Write lyrics', 'black', 'today', 'king', 0.24, 0.2),
-      mk('Call Samo', 'blue', 'today', 'queen', 0.68, 0.26, { cluster: crew }),
-      mk('Studio session', 'black', 'today', 'queen', 0.6, 0.4, { due: localISO(0), cluster: crew }),
-      mk('Buy paint', 'red', 'today', 'bishop', 0.3, 0.47, { due: localISO(-1) }),
-      mk('Idea: mural', 'yellow', 'ideas', 'knight', 0.66, 0.58),
-      mk('Read Jean-Michel bio', 'black', 'personal', 'pawn', 0.32, 0.68),
-      mk('Invoice the gallery $$$', 'blue', 'work', 'bishop', 0.7, 0.74, { due: localISO(2) }),
-      mk('Stretch canvases', 'black', 'today', 'knight', 0.28, 0.82, { done: true, doneAt: Date.now(), slashSeed: 4242 }),
-    ];
-  }
-
   // ---------- boot ----------
 
   function dayDateText() {
@@ -1235,11 +1219,21 @@
 
   function load() {
     try {
-      const raw = localStorage.getItem(LS.tasks);
-      if (raw) { tasks = JSON.parse(raw); return; }
-    } catch { /* fall through */ }
-    tasks = sampleTasks();
+      tasks = JSON.parse(localStorage.getItem(LS.tasks) || '[]');
+    } catch { tasks = []; }
     saveTasks();
+  }
+
+  // ---------- onboarding ----------
+
+  const OB_KEY = 'basq.seen';
+  const onboard = $('#onboard');
+  if (onboard && !localStorage.getItem(OB_KEY)) {
+    onboard.hidden = false;
+    $('#onboardGo').addEventListener('click', () => {
+      localStorage.setItem(OB_KEY, '1');
+      onboard.hidden = true;
+    });
   }
 
   load();

@@ -11,6 +11,15 @@
     color: 'kand.color',
   };
 
+  // storage schema v2 (zero state) — wipe any pre-v2 data, e.g. old sample seeds
+  const LS_VER = '2';
+  if (localStorage.getItem('kand.v') !== LS_VER) {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('kand.')) localStorage.removeItem(k);
+    }
+    localStorage.setItem('kand.v', LS_VER);
+  }
+
   const COLORS = {
     purple: '#7b5ea7',
     blue: '#3457a4',
@@ -1188,50 +1197,25 @@
     }
   }
 
-  // ---------- samples ----------
-
-  function sampleTasks() {
-    const mk = (title, shape, color, layer, x, y, size, extra = {}) => ({
-      id: crypto.randomUUID(),
-      title, shape, color, layer, x, y, size,
-      angle: extra.angle ?? 0,
-      path: extra.path ?? null,
-      seed: Math.floor(Math.random() * 2 ** 31),
-      due: extra.due ?? null,
-      priority: extra.priority ?? 'med',
-      subs: extra.subs ?? [],
-      done: extra.done ?? false,
-      doneAt: extra.done ? Date.now() : null,
-      group: extra.group ?? null,
-      createdAt: Date.now() - 2 * 864e5,
-    });
-    const g = crypto.randomUUID();
-    return [
-      mk('Write proposal', 'circle', 'purple', 'work', 0.32, 0.24, 96, {
-        priority: 'high', due: localISO(2), group: g,
-        subs: [{ t: 'Prepare outline', done: true }, { t: 'Draft intro', done: false }, { t: 'Review with team', done: false }],
-      }),
-      mk('Quarterly numbers', 'square', 'blue', 'work', 0.68, 0.35, 58, { due: localISO(1), group: g }),
-      mk('Pay studio rent', 'triangle', 'red', 'today', 0.72, 0.62, 54, { priority: 'high', due: localISO(0) }),
-      mk('Buy groceries', 'point', 'yellow', 'personal', 0.24, 0.55, 16),
-      mk('Evening run', 'curve', 'green', 'health', 0.45, 0.72, 74, {
-        angle: -0.5, path: [[0, 0.75], [0.22, 0.2], [0.5, 0.75], [0.78, 0.2], [1, 0.55]],
-      }),
-      mk('Learn piano', 'dots', 'gray', 'someday', 0.82, 0.16, 52),
-      mk('Morning pages', 'line', 'purple', 'today', 0.18, 0.36, 66, { angle: -0.35, priority: 'low' }),
-      mk('Call the framer', 'circle', 'yellow', 'personal', 0.55, 0.5, 34, { done: true }),
-    ];
-  }
-
   // ---------- boot ----------
 
   function load() {
     try {
-      const raw = localStorage.getItem(LS.tasks);
-      if (raw) { tasks = JSON.parse(raw); return; }
-    } catch { /* fall through */ }
-    tasks = sampleTasks();
+      tasks = JSON.parse(localStorage.getItem(LS.tasks) || '[]');
+    } catch { tasks = []; }
     saveTasks();
+  }
+
+  // ---------- onboarding ----------
+
+  const OB_KEY = 'kand.seen';
+  const onboard = $('#onboard');
+  if (onboard && !localStorage.getItem(OB_KEY)) {
+    onboard.hidden = false;
+    $('#onboardGo').addEventListener('click', () => {
+      localStorage.setItem(OB_KEY, '1');
+      onboard.hidden = true;
+    });
   }
 
   const d = new Date();

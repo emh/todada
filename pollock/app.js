@@ -11,6 +11,15 @@
     mood: 'pollock.mood',
   };
 
+  // storage schema v2 (zero state) — wipe any pre-v2 data, e.g. old sample seeds
+  const LS_VER = '2';
+  if (localStorage.getItem('pollock.v') !== LS_VER) {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('pollock.')) localStorage.removeItem(k);
+    }
+    localStorage.setItem('pollock.v', LS_VER);
+  }
+
   const COLORS = {
     black: '#181510',
     red: '#c8371f',
@@ -931,41 +940,25 @@
     }
   }
 
-  // ---------- samples ----------
-
-  function sampleTasks() {
-    const mk = (title, color, layer, kind, x, y, energy, due, done) => ({
-      id: crypto.randomUUID(),
-      title, color, layer, kind, x, y, energy,
-      angle: Math.random() * Math.PI * 2,
-      seed: Math.floor(Math.random() * 2 ** 31),
-      due: due || null,
-      done: !!done,
-      doneAt: done ? Date.now() : null,
-      smearAngle: done ? -0.5 : undefined,
-      createdAt: Date.now(),
-    });
-    return [
-      mk('Client presentation', 'black', 'today', 'press', 0.44, 0.3, 0.85, localISO(1)),
-      mk('Buy groceries', 'yellow', 'today', 'tap', 0.72, 0.52, 0.4, localISO(0)),
-      mk('Call mom', 'red', 'today', 'flick', 0.26, 0.56, 0.7, localISO(0)),
-      mk('Fix the login bug', 'blue', 'today', 'flick', 0.6, 0.72, 0.8),
-      mk('Water the plants', 'yellow', 'today', 'tap', 0.32, 0.8, 0.3),
-      mk('Emptied the inbox', 'gray', 'today', 'press', 0.78, 0.24, 0.6, null, true),
-      mk('Quarterly review deck', 'blue', 'work', 'press', 0.5, 0.42, 0.75, localISO(3)),
-      mk('App with no lists', 'black', 'ideas', 'flick', 0.42, 0.5, 0.9),
-    ];
-  }
-
   // ---------- boot ----------
 
   function load() {
     try {
-      const raw = localStorage.getItem(LS.tasks);
-      if (raw) { tasks = JSON.parse(raw); return; }
-    } catch { /* fall through */ }
-    tasks = sampleTasks();
+      tasks = JSON.parse(localStorage.getItem(LS.tasks) || '[]');
+    } catch { tasks = []; }
     saveTasks();
+  }
+
+  // ---------- onboarding ----------
+
+  const OB_KEY = 'pollock.seen';
+  const onboard = $('#onboard');
+  if (onboard && !localStorage.getItem(OB_KEY)) {
+    onboard.hidden = false;
+    $('#onboardGo').addEventListener('click', () => {
+      localStorage.setItem(OB_KEY, '1');
+      onboard.hidden = true;
+    });
   }
 
   load();

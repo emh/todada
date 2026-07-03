@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=2" />
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
 
@@ -77,11 +77,27 @@
     <p class="sheet-note">The canvas adapts to your energy.</p>
   </section>
 
+  <!-- first-run onboarding -->
+  <div class="onboard" id="onboard" hidden>
+    <div class="onboard-card">
+      <h2>Paint your tasks.</h2>
+      <p class="ob-lede">Your day is a canvas. Every task is a throw of paint — its color is its nature, its energy is yours.</p>
+      <ul class="ob-list">
+        <li><i style="background:#e8e2d2"></i><b>Tap</b> for a quick task</li>
+        <li><i style="background:#c8371f"></i><b>Flick</b> to throw a big one</li>
+        <li><i style="background:#2c4f9e"></i><b>Press &amp; hold</b> for something heavy</li>
+        <li><i style="background:#d9a616"></i><b>Scrub</b> a mark to smear it done</li>
+      </ul>
+      <p class="ob-sub">Tap a mark for its details. Drag to move it.<br/>Manage your chaos. Make something.</p>
+      <button class="ob-go" id="onboardGo">Start throwing</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast" hidden>
     <span id="toastText"></span>
     <button id="toastAction" hidden></button>
   </div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

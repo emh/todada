@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=1" />
+  <link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body>
 
@@ -106,11 +106,33 @@
     </div>
   </div>
 
+  <!-- first-run onboarding -->
+  <div class="onboard" id="onboard" hidden>
+    <div class="onboard-card">
+      <div class="ob-shapes" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#7b5ea7"/></svg>
+        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="#3457a4"/></svg>
+        <svg viewBox="0 0 24 24"><polygon points="12,3 21,20 3,20" fill="#c9401f"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M3 17 Q9 4 14 13 T21 8" fill="none" stroke="#5a8a5a" stroke-width="2.6" stroke-linecap="round"/></svg>
+      </div>
+      <h2>This is not a list.<br/>It is a composition.</h2>
+      <p class="ob-lede">Every task is an element with weight, color, and direction. You bring balance to your day by arranging what matters.</p>
+      <ul class="ob-list">
+        <li><b>Tap</b> for a point. <b>Drag</b> to create a shape — the motion becomes the element.</li>
+        <li><b>Tap</b> an element to focus it: steps, weight, due date.</li>
+        <li><b>Flick</b> to resolve — it fades into the background.</li>
+        <li><b>Circle</b> elements to relate them. They move as one.</li>
+        <li><b>Balance</b> shows the weight of your day. Harmonize settles it.</li>
+      </ul>
+      <button class="ob-go" id="onboardGo">Begin the composition</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast" hidden>
     <span id="toastText"></span>
     <button id="toastAction" hidden></button>
   </div>
 
-  <script src="app.js?v=1"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

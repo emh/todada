@@ -575,3 +575,90 @@ html, body {
   cursor: pointer;
   touch-action: manipulation;
 }
+
+/* ---------- onboarding ---------- */
+
+.onboard {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(20, 18, 14, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  animation: fade-in 0.25s ease both;
+}
+.onboard-card {
+  background: #fff;
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  padding: 24px 22px 18px;
+  width: min(92vw, 370px);
+  box-shadow: 10px 10px 0 rgba(20, 18, 14, 0.3);
+}
+.ob-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-rows: 16px 12px;
+  gap: 3px;
+  background: var(--ink);
+  border: 3px solid var(--ink);
+  width: 96px;
+  margin-bottom: 14px;
+}
+.ob-grid i { display: block; }
+.onboard-card h2 {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.onboard-card .ob-lede {
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: rgba(20, 18, 14, 0.65);
+}
+.onboard-card .ob-list {
+  list-style: none;
+  margin: 15px 0 4px;
+  display: grid;
+  gap: 9px;
+}
+.onboard-card .ob-list li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+.onboard-card .ob-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 5px;
+  width: 9px; height: 9px;
+  background: var(--ink);
+}
+.onboard-card .ob-list li:nth-child(1)::before { background: var(--red); }
+.onboard-card .ob-list li:nth-child(2)::before { background: var(--blue); }
+.onboard-card .ob-list li:nth-child(3)::before { background: var(--white); outline: 2px solid var(--ink); outline-offset: -2px; }
+.onboard-card .ob-list li:nth-child(4)::before { background: var(--yellow); }
+.onboard-card .ob-go {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 13px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.onboard-card .ob-go:active { translate: 2px 2px; }

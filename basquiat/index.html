@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
 
@@ -104,11 +104,28 @@
     </div>
   </section>
 
+  <!-- first-run onboarding -->
+  <div class="onboard" id="onboard" hidden>
+    <div class="onboard-card">
+      <svg class="ob-crown" viewBox="0 0 24 18"><path d="M3 14 L4 5 L8.5 9.5 L12 2.5 L15.5 9.5 L20 5 L21 14 Z"/><rect x="3.4" y="14.5" width="17.2" height="2.4"/></svg>
+      <h2>Not just tasks.<br/>Marks.</h2>
+      <ul class="ob-list">
+        <li><span class="ob-k">+ DRAW</span>a box, a crown, a scribble. then give it voice.</li>
+        <li><span class="ob-k">TAP</span>open the mark. crowns set priority — king to ghost.</li>
+        <li><span class="ob-k">SLASH</span>swipe fast across it. crossed out. history.</li>
+        <li><span class="ob-k">DRAG</span>slow. move it. crews move together.</li>
+        <li><span class="ob-k">LASSO</span>circle marks to build a crew.</li>
+      </ul>
+      <p class="ob-sub">not organized. not perfect. <em>but real.</em></p>
+      <button class="ob-go" id="onboardGo">MAKE YOUR MARK</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast" hidden>
     <span id="toastText"></span>
     <button id="toastAction" hidden></button>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

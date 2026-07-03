@@ -589,3 +589,84 @@ html, body {
   cursor: pointer;
   touch-action: manipulation;
 }
+
+/* ---------- onboarding ---------- */
+
+.onboard {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(20, 16, 10, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  animation: fade-in 0.25s ease both;
+}
+.onboard-card {
+  position: relative;
+  background: var(--chrome);
+  color: var(--chrome-ink);
+  padding: 26px 22px 20px;
+  width: min(92vw, 360px);
+  box-shadow: 10px 12px 0 rgba(15, 12, 6, 0.4);
+  rotate: -1deg;
+}
+.ob-crown {
+  width: 40px; height: 30px;
+  fill: var(--gold);
+  stroke: var(--chrome-ink);
+  stroke-width: 0.8;
+  rotate: -8deg;
+  margin-bottom: 6px;
+}
+.onboard-card h2 {
+  font-family: var(--font-marker);
+  font-size: 30px;
+  line-height: 1.15;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.onboard-card .ob-list {
+  list-style: none;
+  display: grid;
+  gap: 11px;
+  margin-bottom: 16px;
+}
+.onboard-card .ob-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--chrome-ink);
+}
+.ob-k {
+  font-family: var(--font-marker);
+  font-size: 13px;
+  color: var(--gold);
+  flex: none;
+  width: 74px;
+}
+.ob-sub {
+  font-family: var(--font-marker);
+  font-size: 15px;
+  color: var(--chrome-dim);
+  rotate: -1deg;
+}
+.ob-sub em { color: var(--red); font-style: normal; }
+.onboard-card .ob-go {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  border: none;
+  background: var(--gold);
+  color: var(--ink);
+  font-family: var(--font-marker);
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  padding: 13px;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+}
+.onboard-card .ob-go:active { translate: 2px 2px; box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5); }

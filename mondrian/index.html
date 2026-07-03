@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=2" />
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
 
@@ -74,11 +74,32 @@
     <button class="btn-line" id="clearDone">Clear completed into open space</button>
   </section>
 
+  <!-- first-run onboarding -->
+  <div class="onboard" id="onboard" hidden>
+    <div class="onboard-card">
+      <div class="ob-grid" aria-hidden="true">
+        <i style="background:#d92311"></i><i style="background:#f6f3ec"></i>
+        <i style="background:#f6f3ec"></i><i style="background:#1a4ba0"></i>
+        <i style="background:#f2c500"></i><i style="background:#f6f3ec"></i>
+      </div>
+      <h2>Design your day.</h2>
+      <p class="ob-lede">The screen is your day. Every rectangle is a task — its size is its weight, its color is its context. White is calm.</p>
+      <ul class="ob-list">
+        <li><b>+ then tap a block</b> — divide the space. A new task fills it.</li>
+        <li><b>Tap a block</b> — subtasks, due date, priority, merge.</li>
+        <li><b>Swipe fast across it</b> — complete. The block turns white.</li>
+        <li><b>Drag a line</b> — resize. <b>Drag a block</b> — swap positions.</li>
+        <li><b>⋯</b> — choose a structure for the day. The grid adapts.</li>
+      </ul>
+      <button class="ob-go" id="onboardGo">Compose the day</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast" hidden>
     <span id="toastText"></span>
     <button id="toastAction" hidden></button>
   </div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
