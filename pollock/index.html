@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#efe7d6" />
+  <title>Pollock / Todo — Todada</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=1" />
+</head>
+<body>
+
+  <!-- The canvas. Each mark is a task. -->
+  <div class="stage" id="stage">
+    <div class="marks" id="marks"></div>
+    <div class="hint" id="hint" hidden>
+      <p>Flick, tap, or press&nbsp;&amp;&nbsp;hold<br/>to throw a task onto the canvas.</p>
+      <p class="hint-sub">Scrub a mark to smear it done.</p>
+    </div>
+  </div>
+
+  <!-- Chrome floats above the paint -->
+  <header class="topbar">
+    <button class="icon-btn" id="layersBtn" aria-label="Layers">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <h1 class="layer-title" id="layerTitle">Today</h1>
+    <button class="icon-btn" id="moodBtn" aria-label="Daily setup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/></svg>
+    </button>
+  </header>
+
+  <div class="toolbar" id="toolbar" role="radiogroup" aria-label="Ink for new marks">
+    <button class="ink" data-ink="black" title="Black — high impact" aria-label="Black ink, high impact"></button>
+    <button class="ink" data-ink="red" title="Red — urgent / time sensitive" aria-label="Red ink, urgent"></button>
+    <button class="ink" data-ink="blue" title="Blue — work / projects" aria-label="Blue ink, work"></button>
+    <button class="ink" data-ink="yellow" title="Yellow — quick / small" aria-label="Yellow ink, quick"></button>
+  </div>
+
+  <!-- Name-it bubble -->
+  <div class="bubble" id="bubble" hidden>
+    <input id="bubbleInput" type="text" placeholder="Name it…" autocomplete="off" enterkeyhint="done" maxlength="80" />
+    <button class="bubble-x" id="bubbleCancel" aria-label="Discard">×</button>
+  </div>
+
+  <!-- Inspect popover -->
+  <div class="popover" id="popover" hidden></div>
+
+  <div class="backdrop" id="backdrop" hidden></div>
+
+  <!-- Layers sheet -->
+  <section class="sheet" id="layersSheet" aria-label="Layers" hidden>
+    <div class="sheet-head">
+      <h2>Layers</h2>
+      <button class="sheet-x" data-close aria-label="Close">×</button>
+    </div>
+    <ul class="layer-list" id="layerList"></ul>
+    <div class="legend">
+      <span><i style="background:#181510"></i>High impact</span>
+      <span><i style="background:#c8371f"></i>Urgent</span>
+      <span><i style="background:#2c4f9e"></i>Work</span>
+      <span><i style="background:#d9a616"></i>Quick</span>
+      <span><i style="background:#8f8a80"></i>Done</span>
+    </div>
+    <button class="sheet-action" id="clearDone">Scrape off smeared marks</button>
+  </section>
+
+  <!-- Daily setup sheet -->
+  <section class="sheet" id="moodSheet" aria-label="Daily setup" hidden>
+    <div class="sheet-head">
+      <h2>What kind of day is this?</h2>
+      <button class="sheet-x" data-close aria-label="Close">×</button>
+    </div>
+    <ul class="mood-list" id="moodList"></ul>
+    <p class="sheet-note">The canvas adapts to your energy.</p>
+  </section>
+
+  <div class="toast" id="toast" hidden>
+    <span id="toastText"></span>
+    <button id="toastAction" hidden></button>
+  </div>
+
+  <script src="app.js?v=1"></script>
+</body>
+</html>
