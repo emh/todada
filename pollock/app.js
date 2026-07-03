@@ -432,6 +432,18 @@
   const TAP_DIST = 14;
   let gest = null;
 
+  // a pointerup that opens UI is followed by a browser-generated click on
+  // whatever now sits under the cursor (popover, bubble, toast) — swallow it
+  let swallowUntil = 0;
+  const swallowNextClick = () => { swallowUntil = performance.now() + 150; };
+  document.addEventListener('click', (e) => {
+    if (performance.now() < swallowUntil) {
+      swallowUntil = 0;
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
   stage.addEventListener('contextmenu', (e) => e.preventDefault());
 
   stage.addEventListener('pointerdown', (e) => {
@@ -519,6 +531,7 @@
     if (g.preview) g.preview.remove();
     if (g.consumed || cancelled) {
       if (g.markEl) g.markEl.classList.remove('dragging');
+      if (g.consumed) swallowNextClick(); // toast with Undo may sit under the cursor
       return;
     }
 
@@ -531,6 +544,7 @@
         saveTasks(); // position already applied live
       } else {
         openPopover(g.task);
+        swallowNextClick();
       }
       return;
     }
@@ -550,6 +564,7 @@
     } else if (dist <= TAP_DIST) {
       createTask('tap', g.startX, g.startY, 0, 0.3);
     }
+    swallowNextClick(); // the name bubble opens under the cursor
   }
 
   stage.addEventListener('pointerup', (e) => endGesture(e, false));
