@@ -1,0 +1,130 @@
+/* ============ BAUHAUS — cream, geometric primaries, hard lines ============ */
+
+[data-theme="bauhaus"] {
+  --font-display: 'Jost', sans-serif;
+  --font-body: 'Jost', sans-serif;
+
+  --ink: #141414;
+  --ink-muted: rgba(20, 20, 20, 0.55);
+  --accent: #1740c8;
+
+  --title-size: 52px;
+  --title-weight: 700;
+  --title-spacing: -0.02em;
+
+  --surface: transparent;
+  --radius-card: 0;
+  --shadow-card: none;
+  --task-pad: 18px 4px 18px 62px;
+  --task-gap: 0px;
+
+  --tabs-radius: 0;
+  --tab-radius: 0;
+  --tab-active-bg: #141414;
+  --tab-active-ink: #f4edda;
+  --tab-weight: 600;
+  --tab-size: 14px;
+
+  --check-border-w: 2.5px;
+  --check-done-bg: #1740c8;
+
+  --tag-work: #1740c8;
+  --tag-personal: #1c8a3c;
+  --tag-health: #8b5cd6;
+
+  --btn-radius: 0;
+
+  --fab-bg: #1740c8;
+  --fab-ink: #f4edda;
+  --fab-shadow: 0 6px 16px rgba(23, 64, 200, 0.35);
+
+  --nav-bg: #f4edda;
+  --nav-ink: #141414;
+  --nav-active: #1740c8;
+  --nav-border-w: 2.5px;
+  --nav-border: #141414;
+
+  --sheet-bg: #f4edda;
+  --sheet-radius: 0;
+  --sheet-border-w: 2.5px;
+  --sheet-border: #141414;
+  --field-bg: #fffdf4;
+  --field-border-w: 1.5px;
+  --field-border: #141414;
+  --field-radius: 0;
+}
+
+[data-theme="bauhaus"] .bg {
+  background: #f4edda;
+}
+
+/* corner geometry: blue block + yellow bar + black cross, top-left */
+[data-theme="bauhaus"] .app::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 90px;
+  height: 240px;
+  pointer-events: none;
+  background:
+    linear-gradient(#141414, #141414) 0 118px / 76px 3px no-repeat,
+    linear-gradient(#141414, #141414) 42px 88px / 3px 100px no-repeat,
+    linear-gradient(#1a3fbd, #1a3fbd) 0 0 / 30px 110px no-repeat,
+    linear-gradient(#eab61b, #eab61b) 0 126px / 17px 106px no-repeat;
+}
+
+/* red dot echoing the mock's top-right circle */
+[data-theme="bauhaus"] #themeBtn {
+  background: #d92818;
+  color: #f4edda;
+  border-radius: 50%;
+}
+
+[data-theme="bauhaus"] .topbar { padding-left: 34px; }
+[data-theme="bauhaus"] .title { margin: 34px 2px 22px 34px; }
+
+[data-theme="bauhaus"] .tabs {
+  border-bottom: 3px solid #141414;
+}
+[data-theme="bauhaus"] .tab {
+  border-left: 1.5px solid #141414;
+  padding: 13px 2px;
+}
+[data-theme="bauhaus"] .tab:first-child { border-left: 0; }
+
+/* hairline rows with a colored block on the left edge */
+[data-theme="bauhaus"] .task {
+  border-bottom: 1.5px solid #141414;
+}
+[data-theme="bauhaus"] .task::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 44px;
+}
+[data-theme="bauhaus"] .task:nth-child(4n + 1)::before { background: #d92818; }
+[data-theme="bauhaus"] .task:nth-child(4n + 2)::before { background: #1a3fbd; }
+[data-theme="bauhaus"] .task:nth-child(4n + 3)::before { background: #eab61b; }
+[data-theme="bauhaus"] .task:nth-child(4n + 4)::before {
+  background: #141414;
+  border-radius: 0 999px 999px 0;
+  width: 34px;
+}
+
+[data-theme="bauhaus"] .check { background: #fffdf4; }
+
+[data-theme="bauhaus"] .navitem.active::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  width: 44px;
+  height: 3.5px;
+  background: #1740c8;
+}
+[data-theme="bauhaus"] .navitem {
+  border-left: 1.5px solid #141414;
+}
+[data-theme="bauhaus"] .navitem:first-child { border-left: 0; }

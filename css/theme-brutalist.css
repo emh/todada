@@ -1,0 +1,160 @@
+/* ============ BRUTALIST — grainy concrete, heavy rule lines, safety orange ============ */
+
+[data-theme="brutalist"] {
+  --font-display: 'Oswald', sans-serif;
+  --font-body: 'Oswald', sans-serif;
+
+  --ink: #161616;
+  --ink-muted: rgba(22, 22, 22, 0.62);
+  --accent: #ff4d00;
+
+  --title-size: 64px;
+  --title-weight: 700;
+  --title-transform: uppercase;
+  --title-spacing: -0.01em;
+
+  --surface: #d9d7d0;
+  --surface-border-w: 3px;
+  --surface-border: #161616;
+  --radius-card: 0;
+  --shadow-card: none;
+  --task-pad: 0;
+  --task-gap: 0px;
+
+  --tabs-bg: #d9d7d0;
+  --tabs-border-w: 3px;
+  --tabs-border: #161616;
+  --tabs-radius: 0;
+  --tab-radius: 0;
+  --tab-active-bg: #161616;
+  --tab-active-ink: #d9d7d0;
+  --tab-transform: uppercase;
+  --tab-weight: 600;
+  --tab-size: 13px;
+
+  --check-border-w: 3px;
+  --check-done-bg: #ff4d00;
+  --check-done-ink: #161616;
+
+  --dot-radius: 0;
+  --tag-work: #ff4d00;
+  --tag-personal: #161616;
+  --tag-health: #161616;
+  --tag-transform: uppercase;
+  --tag-size: 12px;
+
+  --due-transform: uppercase;
+  --due-weight: 600;
+  --due-size: 13px;
+
+  --btn-bg: #d9d7d0;
+  --btn-radius: 0;
+  --btn-border-w: 3px;
+  --btn-border: #161616;
+
+  --fab-bg: #ff4d00;
+  --fab-ink: #161616;
+  --fab-radius: 0;
+  --fab-border-w: 3px;
+  --fab-border: #161616;
+  --fab-shadow: 6px 6px 0 #161616;
+
+  --nav-bg: #161616;
+  --nav-ink: #d9d7d0;
+  --nav-active: #161616;
+  --nav-border-w: 3px;
+  --nav-border: #161616;
+  --nav-transform: uppercase;
+  --nav-label-size: 11px;
+
+  --sheet-bg: #d9d7d0;
+  --sheet-radius: 0;
+  --sheet-border-w: 3px;
+  --sheet-border: #161616;
+  --field-bg: #e6e4dd;
+  --field-border-w: 2.5px;
+  --field-border: #161616;
+  --field-radius: 0;
+
+  --group-transform: uppercase;
+}
+
+/* concrete + film grain */
+[data-theme="brutalist"] .bg {
+  background: #d9d7d0;
+}
+[data-theme="brutalist"] .bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+[data-theme="brutalist"] .topbar {
+  border: 3px solid #161616;
+  padding: 0;
+  margin-bottom: 4px;
+}
+[data-theme="brutalist"] .icon-btn { width: 60px; height: 56px; }
+[data-theme="brutalist"] #menuBtn { border-right: 3px solid #161616; }
+[data-theme="brutalist"] #themeBtn { border-left: 3px solid #161616; }
+
+[data-theme="brutalist"] .title {
+  margin: 20px 2px 22px;
+  line-height: 0.95;
+}
+
+[data-theme="brutalist"] .tab {
+  border-left: 3px solid #161616;
+  padding: 14px 2px;
+}
+[data-theme="brutalist"] .tab:first-child { border-left: 0; }
+
+/* ledger rows: cells divided by rules, collapsed borders */
+[data-theme="brutalist"] .task {
+  margin-top: -3px;
+  grid-template-columns: 62px 1fr 104px;
+  gap: 0;
+}
+[data-theme="brutalist"] .task:first-child { margin-top: 0; }
+
+[data-theme="brutalist"] .check {
+  justify-self: center;
+  background: transparent;
+}
+[data-theme="brutalist"] .task-body {
+  border-left: 3px solid #161616;
+  border-right: 3px solid #161616;
+  padding: 17px 16px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+[data-theme="brutalist"] .task-due {
+  text-align: center;
+  padding: 0 6px;
+}
+[data-theme="brutalist"] .task-title { font-weight: 600; text-transform: uppercase; letter-spacing: 0.01em; }
+
+[data-theme="brutalist"] .dot { width: 11px; height: 11px; }
+[data-theme="brutalist"] .task-tag[data-tag="personal"],
+[data-theme="brutalist"] .task-tag[data-tag="health"] { color: var(--ink-muted); }
+
+[data-theme="brutalist"] .navitem {
+  margin: 10px 6px;
+  border: 2.5px solid #d9d7d0;
+  color: #d9d7d0;
+  padding: 10px 4px 8px;
+}
+[data-theme="brutalist"] .navitem.active {
+  background: #d9d7d0;
+  color: #161616;
+  box-shadow: inset 0 4px 0 #ff4d00;
+}
+
+[data-theme="brutalist"] .fab:active {
+  transform: translate(4px, 4px);
+  box-shadow: 2px 2px 0 #161616;
+}

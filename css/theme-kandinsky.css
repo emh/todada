@@ -1,0 +1,122 @@
+/* ============ KANDINSKY — warm paper, floating geometry, soft depth ============ */
+
+[data-theme="kandinsky"] {
+  --font-display: 'Hanken Grotesk', sans-serif;
+  --font-body: 'Hanken Grotesk', sans-serif;
+
+  --ink: #1d2b50;
+  --ink-muted: rgba(29, 43, 80, 0.55);
+  --accent: #2456c9;
+
+  --title-size: 46px;
+  --title-weight: 700;
+  --title-spacing: -0.02em;
+
+  --surface: #fbf7ec;
+  --radius-card: 18px;
+  --shadow-card: 0 6px 22px rgba(60, 45, 20, 0.1), 0 1px 3px rgba(60, 45, 20, 0.07);
+  --task-pad: 18px 18px 18px 20px;
+  --task-gap: 12px;
+
+  --tabs-bg: #fbf7ec;
+  --tabs-radius: 999px;
+  --tab-radius: 999px;
+  --tab-active-bg: #1d2b50;
+  --tab-active-ink: #f6f0df;
+  --tab-size: 13.5px;
+
+  --check-border-w: 2px;
+  --check-border: rgba(29, 43, 80, 0.5);
+  --check-done-bg: #1d2b50;
+
+  --tag-work: #2456c9;
+  --tag-personal: #2c7a3f;
+  --tag-health: #7a5cc9;
+
+  --btn-bg: #fbf7ec;
+  --btn-radius: 50%;
+
+  --fab-bg: #1d2b50;
+  --fab-ink: #f6f0df;
+  --fab-shadow: 0 10px 26px rgba(29, 43, 80, 0.4);
+
+  --nav-bg: #fbf7ec;
+  --nav-ink: rgba(29, 43, 80, 0.5);
+  --nav-active: #1d2b50;
+  --nav-radius: 26px 26px 0 0;
+  --nav-shadow: 0 -6px 24px rgba(60, 45, 20, 0.12);
+
+  --sheet-bg: #f6f0df;
+  --sheet-radius: 26px 26px 0 0;
+  --field-bg: #fffdf6;
+  --field-radius: 14px;
+}
+
+/* scattered geometry: top-right constellation + bottom-left arc */
+[data-theme="kandinsky"] .bg {
+  background-color: #f3ecdd;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='360' viewBox='0 0 420 360'%3E%3Cg fill='none'%3E%3Ccircle cx='330' cy='70' r='85' fill='%23c95a28' opacity='0.9'/%3E%3Ccircle cx='330' cy='70' r='38' fill='%23f3ecdd'/%3E%3Cpath d='M420 130 L280 270 L420 270 Z' fill='%23788054' opacity='0.85'/%3E%3Cpath d='M180 60 L240 130 L120 130 Z' fill='%23c95a28' opacity='0.8'/%3E%3Ccircle cx='96' cy='40' r='16' fill='%23d3a021'/%3E%3Ccircle cx='245' cy='40' r='6' fill='%231d2b50'/%3E%3Cpath d='M30 190 h150 M30 202 h150 M30 214 h150 M30 226 h150' stroke='%231d2b50' stroke-width='1.6'/%3E%3Ccircle cx='250' cy='210' r='95' stroke='%231d2b50' stroke-width='1.6'/%3E%3Cpath d='M60 320 L410 10' stroke='%231d2b50' stroke-width='1.6'/%3E%3Cpath d='M370 250 a55 55 0 0 1 -55 55 L370 305 Z' fill='%233a5a82' opacity='0.85'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='300' viewBox='0 0 340 300'%3E%3Cg%3E%3Cpath d='M0 300 a130 130 0 0 1 130 -130 v130 Z' fill='%23c95a28' opacity='0.85'/%3E%3Ccircle cx='60' cy='120' r='13' fill='%2317203d'/%3E%3Cpath d='M90 210 h120 M90 222 h120 M90 234 h120' stroke='%2317203d' stroke-width='1.6'/%3E%3Cpath d='M250 300 L340 190 L340 300 Z' fill='%23788054' opacity='0.8'/%3E%3Ccircle cx='300' cy='120' r='45' fill='%233a5a82' opacity='0.85'/%3E%3Ccircle cx='210' cy='60' r='8' fill='%23c9302c'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat;
+  background-position: top -30px right -50px, left -20px bottom -20px;
+  background-size: 340px auto, 260px auto;
+}
+
+[data-theme="kandinsky"] .icon-btn {
+  box-shadow: 0 3px 12px rgba(60, 45, 20, 0.14);
+}
+
+[data-theme="kandinsky"] .tabs {
+  box-shadow: 0 4px 16px rgba(60, 45, 20, 0.1);
+  padding: 5px;
+}
+
+/* corner accents on cards — clipped triangles + dot grids, cycling hues */
+[data-theme="kandinsky"] .task { overflow: hidden; }
+[data-theme="kandinsky"] .task::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 52px;
+  height: 52px;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  opacity: 0.85;
+}
+[data-theme="kandinsky"] .task:nth-child(6n + 1)::before { background: #3a5a82; }
+[data-theme="kandinsky"] .task:nth-child(6n + 2)::before { background: #9a9a74; }
+[data-theme="kandinsky"] .task:nth-child(6n + 3)::before { background: #d3a021; }
+[data-theme="kandinsky"] .task:nth-child(6n + 4)::before { background: #6d5a9e; }
+[data-theme="kandinsky"] .task:nth-child(6n + 5)::before { background: #c95a28; }
+[data-theme="kandinsky"] .task:nth-child(6n + 6)::before { background: #526b45; }
+
+[data-theme="kandinsky"] .task::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  bottom: 6px;
+  width: 30px;
+  height: 15px;
+  background-image: radial-gradient(rgba(29, 43, 80, 0.28) 1.4px, transparent 1.6px);
+  background-size: 8px 8px;
+  pointer-events: none;
+}
+[data-theme="kandinsky"] .task:nth-child(3n)::after {
+  width: 34px;
+  height: 9px;
+  background-image: none;
+  border-top: 1.4px solid rgba(29, 43, 80, 0.25);
+  border-bottom: 1.4px solid rgba(29, 43, 80, 0.25);
+}
+
+[data-theme="kandinsky"] .task-body { padding-left: 6px; }
+[data-theme="kandinsky"] .check { background: #fffdf6; }
+
+[data-theme="kandinsky"] .navitem.active svg {
+  background: #1d2b50;
+  color: #f6f0df;
+  border-radius: 50%;
+  padding: 4px;
+  margin: -4px;
+}

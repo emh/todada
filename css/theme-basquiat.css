@@ -1,0 +1,138 @@
+/* ============ BASQUIAT — raw paint, marker scrawl, wobbling edges ============ */
+
+[data-theme="basquiat"] {
+  --font-display: 'Permanent Marker', cursive;
+  --font-body: 'Permanent Marker', cursive;
+
+  --ink: #12100d;
+  --ink-muted: rgba(18, 16, 13, 0.6);
+  --accent: #1c48cf;
+
+  --title-size: 54px;
+  --title-weight: 400;
+  --title-transform: uppercase;
+  --title-spacing: 0.01em;
+
+  --surface: #efe6d4;
+  --surface-border-w: 3px;
+  --surface-border: #12100d;
+  --radius-card: 6px;
+  --shadow-card: 0 4px 0 rgba(0, 0, 0, 0.55);
+  --task-pad: 15px 16px;
+
+  --tabs-bg: #12100d;
+  --tabs-border-w: 2.5px;
+  --tabs-border: #efe6d4;
+  --tabs-radius: 8px;
+  --tab-radius: 5px;
+  --tab-ink: #efe6d4;
+  --tab-active-bg: #cf1f3f;
+  --tab-active-ink: #ffffff;
+  --tab-transform: uppercase;
+  --tab-weight: 400;
+  --tab-size: 11.5px;
+
+  --check-border-w: 3px;
+  --check-done-bg: #12100d;
+  --check-done-ink: #f0b31c;
+
+  --tag-work: #1c48cf;
+  --tag-personal: #1c7a33;
+  --tag-health: #7d2ec4;
+  --tag-transform: uppercase;
+  --tag-size: 12.5px;
+
+  --due-transform: uppercase;
+  --due-weight: 400;
+  --due-size: 13px;
+
+  --btn-bg: #12100d;
+  --btn-ink: #efe6d4;
+  --btn-radius: 7px;
+  --btn-border-w: 2px;
+  --btn-border: #efe6d4;
+
+  --fab-bg: #1c48cf;
+  --fab-ink: #ffffff;
+  --fab-border-w: 3px;
+  --fab-border: #12100d;
+  --fab-shadow: 0 0 0 4px rgba(239, 230, 212, 0.9), 0 8px 18px rgba(0, 0, 0, 0.5);
+
+  --nav-bg: #12100d;
+  --nav-ink: rgba(239, 230, 212, 0.65);
+  --nav-active: #f0b31c;
+  --nav-transform: uppercase;
+  --nav-label-size: 12px;
+
+  --sheet-bg: #efe6d4;
+  --sheet-radius: 14px 14px 0 0;
+  --sheet-border-w: 3px;
+  --sheet-border: #12100d;
+  --field-bg: #ffffff;
+  --field-border-w: 2.5px;
+  --field-border: #12100d;
+  --field-radius: 6px;
+
+  --group-transform: uppercase;
+}
+
+/* painted chaos: canvas-generated when JS runs, gradient patches as fallback */
+[data-theme="basquiat"] .bg {
+  background-color: #12100d;
+  background-image: var(--basq-bg,
+    radial-gradient(90% 45% at 45% 12%, #f0b31c 55%, transparent 56%),
+    radial-gradient(45% 55% at -5% 25%, #1c48cf 55%, transparent 56%),
+    radial-gradient(50% 60% at 105% 45%, #cf1f3f 55%, transparent 56%));
+  background-size: cover;
+  background-position: center;
+}
+
+/* everything gets the hand-drawn wobble */
+[data-theme="basquiat"] .task,
+[data-theme="basquiat"] .tabs,
+[data-theme="basquiat"] .icon-btn,
+[data-theme="basquiat"] .fab { filter: url(#wobble); }
+[data-theme="basquiat"] .title { filter: url(#wobble-strong); }
+
+[data-theme="basquiat"] .task:nth-child(odd) { transform: rotate(-0.5deg); }
+[data-theme="basquiat"] .task:nth-child(even) { transform: rotate(0.4deg); }
+
+[data-theme="basquiat"] .title {
+  color: #12100d;
+  margin: 22px 2px 24px;
+  text-shadow: 2px 2px 0 rgba(239, 230, 212, 0.55);
+}
+
+[data-theme="basquiat"] .tabs { padding: 4px; gap: 2px; }
+[data-theme="basquiat"] .tab.active { box-shadow: 0 0 0 2px #fff; }
+
+[data-theme="basquiat"] .check { background: rgba(255, 255, 255, 0.6); }
+
+[data-theme="basquiat"] .task-title { font-weight: 400; text-transform: uppercase; font-size: 15.5px; }
+[data-theme="basquiat"] .task-due.today { color: #1c48cf; }
+
+[data-theme="basquiat"] .group {
+  color: #efe6d4;
+  text-shadow: 1px 1px 0 #12100d, -1px 1px 0 #12100d, 1px -1px 0 #12100d, -1px -1px 0 #12100d;
+  font-weight: 400;
+  font-size: 14px;
+}
+
+[data-theme="basquiat"] .empty {
+  color: #efe6d4;
+  text-shadow: 1px 1px 0 #12100d, -1px 1px 0 #12100d, 1px -1px 0 #12100d, -1px -1px 0 #12100d;
+}
+
+/* crown over the active nav item */
+[data-theme="basquiat"] .navitem.active::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  width: 26px;
+  height: 14px;
+  background: currentColor;
+  clip-path: polygon(0 100%, 8% 20%, 30% 75%, 50% 0, 70% 75%, 92% 20%, 100% 100%);
+}
+
+[data-theme="basquiat"] .sheet { filter: none; }
+[data-theme="basquiat"] .btn.danger { color: #cf1f3f; }

@@ -1,0 +1,101 @@
+/* ============ POLLOCK — drip splatter over raw canvas, translucent panels ============ */
+
+[data-theme="pollock"] {
+  --font-display: 'Caveat', cursive;
+  --font-body: 'Hanken Grotesk', sans-serif;
+
+  --ink: #17150f;
+  --ink-muted: rgba(23, 21, 15, 0.58);
+  --accent: #2456a0;
+
+  --title-size: 64px;
+  --title-weight: 700;
+  --title-style: italic;
+  --title-spacing: 0;
+
+  --surface: rgba(246, 241, 228, 0.84);
+  --surface-border-w: 1.5px;
+  --surface-border: rgba(23, 21, 15, 0.55);
+  --radius-card: 16px;
+  --shadow-card: 0 3px 12px rgba(23, 21, 15, 0.22);
+  --task-pad: 16px 18px;
+
+  --tabs-bg: rgba(246, 241, 228, 0.85);
+  --tabs-border-w: 1.5px;
+  --tabs-border: rgba(23, 21, 15, 0.5);
+  --tabs-radius: 999px;
+  --tab-radius: 999px;
+  --tab-active-bg: #17150f;
+  --tab-active-ink: #f6f1e4;
+  --tab-size: 13.5px;
+
+  --check-border-w: 2.2px;
+  --check-border: rgba(23, 21, 15, 0.65);
+  --check-done-bg: #17150f;
+  --check-done-ink: #e2a72e;
+
+  --tag-work: #2456a0;
+  --tag-personal: #2c7a3f;
+  --tag-health: #6d3fb0;
+
+  --btn-bg: rgba(246, 241, 228, 0.85);
+  --btn-radius: 50%;
+  --btn-border-w: 1.5px;
+  --btn-border: rgba(23, 21, 15, 0.5);
+
+  --fab-bg: #17150f;
+  --fab-ink: #f6f1e4;
+  --fab-shadow: 0 8px 22px rgba(23, 21, 15, 0.5);
+
+  --nav-bg: rgba(240, 234, 218, 0.92);
+  --nav-ink: rgba(23, 21, 15, 0.5);
+  --nav-active: #2456a0;
+  --nav-border-w: 1.5px;
+  --nav-border: rgba(23, 21, 15, 0.35);
+
+  --sheet-bg: #f2ecdb;
+  --sheet-radius: 22px 22px 0 0;
+  --sheet-border-w: 1.5px;
+  --sheet-border: rgba(23, 21, 15, 0.5);
+  --field-bg: #fffdf4;
+  --field-border-w: 1.5px;
+  --field-border: rgba(23, 21, 15, 0.4);
+  --field-radius: 12px;
+}
+
+/* splatter canvas painted by JS; plain linen fallback */
+[data-theme="pollock"] .bg {
+  background-color: #ece4cf;
+  background-image: var(--pollock-bg, none);
+  background-size: cover;
+  background-position: center;
+}
+
+[data-theme="pollock"] .title {
+  margin: 14px 2px 18px;
+  transform: rotate(-2deg);
+}
+
+[data-theme="pollock"] .tabs { padding: 4px; }
+
+[data-theme="pollock"] .task-due.today { font-weight: 700; }
+
+[data-theme="pollock"] .bottomnav { backdrop-filter: blur(6px); }
+
+/* the date echoes the tag's paint color, like drips finding their family */
+[data-theme="pollock"] .task:has(.task-tag[data-tag="personal"]) .task-due:not(.today):not(.overdue) { color: #2c7a3f; }
+[data-theme="pollock"] .task:has(.task-tag[data-tag="health"]) .task-due:not(.today):not(.overdue) { color: #6d3fb0; }
+
+[data-theme="pollock"] .group {
+  color: #17150f;
+  background: rgba(246, 241, 228, 0.8);
+  display: inline-block;
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+[data-theme="pollock"] .empty {
+  background: rgba(246, 241, 228, 0.8);
+  border-radius: 16px;
+}

@@ -1,0 +1,191 @@
+/* ============ MONDRIAN — white grid, thick black lines, primary cells ============ */
+
+[data-theme="mondrian"] {
+  --font-display: 'Archivo', sans-serif;
+  --font-body: 'Archivo', sans-serif;
+
+  --ink: #111111;
+  --ink-muted: rgba(17, 17, 17, 0.6);
+  --accent: #1533c4;
+
+  --title-size: clamp(20px, 6.4vw, 32px);
+  --title-weight: 800;
+  --title-transform: uppercase;
+  --title-spacing: 0.02em;
+
+  --surface: #f5f5f2;
+  --surface-border-w: 4px;
+  --surface-border: #111111;
+  --radius-card: 0;
+  --shadow-card: none;
+  --task-pad: 16px 16px 16px 84px;
+  --task-gap: 0px;
+
+  --tabs-radius: 0;
+  --tab-radius: 0;
+  --tabs-border-w: 0px;
+  --tab-active-bg: #1533c4;
+  --tab-active-ink: #ffffff;
+  --tab-transform: uppercase;
+  --tab-weight: 700;
+  --tab-size: 12px;
+
+  --check-border-w: 3px;
+  --check-done-bg: #111111;
+
+  --dot-radius: 0;
+  --tag-work: #1533c4;
+  --tag-personal: #f2c500;
+  --tag-health: #dd0e0e;
+  --tag-transform: none;
+
+  --due-weight: 600;
+
+  --btn-radius: 0;
+  --btn-border-w: 4px;
+  --btn-border: #111111;
+  --btn-bg: #f5f5f2;
+
+  --fab-bg: #dd0e0e;
+  --fab-ink: #ffffff;
+  --fab-radius: 0;
+  --fab-border-w: 4px;
+  --fab-border: #111111;
+  --fab-shadow: none;
+
+  --nav-bg: #f5f5f2;
+  --nav-ink: #111111;
+  --nav-active: #ffffff;
+  --nav-border-w: 4px;
+  --nav-border: #111111;
+
+  --sheet-bg: #f5f5f2;
+  --sheet-radius: 0;
+  --sheet-border-w: 4px;
+  --sheet-border: #111111;
+  --field-bg: #ffffff;
+  --field-border-w: 2.5px;
+  --field-border: #111111;
+  --field-radius: 0;
+}
+
+[data-theme="mondrian"] .bg { background: #e9e9e6; }
+
+[data-theme="mondrian"] .app {
+  background: #f5f5f2;
+  padding-left: 0;
+  padding-right: 0;
+  border-left: 4px solid #111;
+  border-right: 4px solid #111;
+}
+
+/* header strip: red cell | title | blue cell */
+[data-theme="mondrian"] .topbar {
+  padding: 0;
+  border-top: 4px solid #111;
+  border-bottom: 4px solid #111;
+}
+[data-theme="mondrian"] .icon-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 0;
+}
+[data-theme="mondrian"] #menuBtn {
+  background: #dd0e0e;
+  color: #fff;
+  border-right: 4px solid #111;
+}
+[data-theme="mondrian"] #themeBtn {
+  background: #1533c4;
+  color: #fff;
+  border-left: 4px solid #111;
+}
+[data-theme="mondrian"] .title {
+  position: absolute;
+  top: 12px;
+  left: 90px;
+  right: 90px;
+  margin: 0;
+  line-height: 72px;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+[data-theme="mondrian"] .tabs {
+  margin-bottom: 0;
+  border-bottom: 4px solid #111;
+}
+[data-theme="mondrian"] .tab {
+  padding: 16px 2px;
+  border-left: 4px solid #111;
+}
+[data-theme="mondrian"] .tab:first-child { border-left: 0; }
+
+/* list: rows collapse borders; yellow column on the right */
+[data-theme="mondrian"] .content { padding-right: 46px; position: relative; }
+[data-theme="mondrian"] .content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 46px;
+  background: #f2c500;
+  border-left: 4px solid #111;
+}
+[data-theme="mondrian"] .task {
+  margin-top: -4px;
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+}
+[data-theme="mondrian"] .task:first-child { margin-top: 0; }
+
+/* left checkbox cell, some cells colored */
+[data-theme="mondrian"] .task::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 64px;
+  border-right: 4px solid #111;
+}
+[data-theme="mondrian"] .task:nth-child(8n + 2)::before { background: #dd0e0e; }
+[data-theme="mondrian"] .task:nth-child(8n + 4)::before { background: #1533c4; }
+[data-theme="mondrian"] .task:nth-child(8n + 7)::before { background: #f2c500; }
+
+[data-theme="mondrian"] .check {
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  z-index: 1;
+}
+[data-theme="mondrian"] .task:nth-child(8n + 2) .check,
+[data-theme="mondrian"] .task:nth-child(8n + 4) .check { border-color: #111; }
+
+[data-theme="mondrian"] .task-due.today { font-weight: 800; }
+
+[data-theme="mondrian"] .group {
+  padding: 10px 16px 0;
+}
+
+[data-theme="mondrian"] .empty { background: #f5f5f2; }
+
+[data-theme="mondrian"] .navitem {
+  border-left: 4px solid #111;
+  padding: 14px 4px 12px;
+}
+[data-theme="mondrian"] .navitem:first-child { border-left: 0; }
+[data-theme="mondrian"] .navitem[data-view="tasks"].active {
+  background: #dd0e0e;
+}
+[data-theme="mondrian"] .navitem[data-view="calendar"].active,
+[data-theme="mondrian"] .navitem[data-view="tags"].active {
+  background: #111;
+}
+
+[data-theme="mondrian"] .fab:active { transform: translate(2px, 2px); }
