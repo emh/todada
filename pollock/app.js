@@ -6,7 +6,7 @@
 
   const LS = {
     tasks: 'pollock.tasks',
-    layer: 'pollock.layer',
+    vis: 'pollock.vis',
     ink: 'pollock.ink',
     mood: 'pollock.mood',
   };
@@ -28,14 +28,14 @@
     gray: '#8f8a80',
   };
 
-  const LAYERS = [
-    { id: 'today', name: 'Today', dot: '#f2eee2' },
-    { id: 'work', name: 'Work', dot: COLORS.blue },
-    { id: 'home', name: 'Home', dot: COLORS.red },
-    { id: 'ideas', name: 'Ideas', dot: '#8a5fb8' },
-    { id: 'waiting', name: 'Waiting', dot: COLORS.yellow },
-    { id: 'done', name: 'Done', dot: COLORS.gray },
-  ];
+  // the color *is* the category; gray is what smeared marks become
+  const MEANINGS = {
+    black: 'High impact',
+    red: 'Urgent',
+    blue: 'Work',
+    yellow: 'Quick',
+    gray: 'Done',
+  };
 
   const MOODS = [
     { id: 'controlled', name: 'Controlled', mult: 0.75 },
@@ -51,7 +51,11 @@
   // ---------- state ----------
 
   let tasks = [];
-  let currentLayer = localStorage.getItem(LS.layer) || 'today';
+  let vis = { black: true, red: true, blue: true, yellow: true, gray: true };
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS.vis) || '{}');
+    for (const k of Object.keys(vis)) if (typeof saved[k] === 'boolean') vis[k] = saved[k];
+  } catch { /* keep defaults */ }
   let ink = localStorage.getItem(LS.ink) || 'black';
   let moodId = localStorage.getItem(LS.mood) || 'controlled';
   let pendingTask = null; // task awaiting a name
@@ -63,14 +67,15 @@
 
   const $ = (s) => document.querySelector(s);
   const stage = $('#stage');
+  const world = $('#world');
   const marksEl = $('#marks');
+  const scrollbarEl = $('#scrollbar');
   const hintEl = $('#hint');
-  const layerTitle = $('#layerTitle');
   const bubble = $('#bubble');
   const bubbleInput = $('#bubbleInput');
   const popover = $('#popover');
   const backdrop = $('#backdrop');
-  const layersSheet = $('#layersSheet');
+  const focusSheet = $('#focusSheet');
   const moodSheet = $('#moodSheet');
   const toastEl = $('#toast');
 
@@ -86,7 +91,9 @@
   }
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const mood = () => MOODS.find((m) => m.id === moodId) || MOODS[0];
-  const layerOf = (id) => LAYERS.find((l) => l.id === id) || LAYERS[0];
+  const catOf = (t) => (t.done ? 'gray' : t.color);
+  const isVisible = (t) => vis[catOf(t)] !== false;
+  const saveVis = () => localStorage.setItem(LS.vis, JSON.stringify(vis));
 
   function localISO(offsetDays = 0) {
     const d = new Date();
@@ -105,6 +112,74 @@
 
   function saveTasks() {
     localStorage.setItem(LS.tasks, JSON.stringify(tasks));
+  }
+
+  // ---------- the scrolling world ----------
+  // the canvas grows on demand: it starts MIN_SCREENS viewports tall and adds
+  // a screen whenever you keep pulling past the bottom edge. x is a fraction
+  // of the viewport width; y is measured in viewport heights (so the world
+  // can grow without moving existing marks).
+
+  const MIN_SCREENS = 3;
+  let screens = MIN_SCREENS;
+  const worldH = () => stage.clientHeight * screens;
+  const yMax = () => screens - 0.12;
+  let scrollY = 0;
+
+  function syncWorldSize() {
+    world.style.height = screens * 100 + '%';
+  }
+
+  // bottom-most splatter, in viewport heights
+  function contentBottom() {
+    let b = 0;
+    for (const t of tasks) b = Math.max(b, t.y || 0);
+    return b;
+  }
+
+  // trim empty trailing screens (load / scrape)
+  function fitWorld() {
+    screens = Math.max(MIN_SCREENS, Math.ceil(contentBottom() + 0.55));
+    syncWorldSize();
+  }
+
+  let growPull = 0; // accumulated pull past the bottom edge, in px
+  function growWorld() {
+    screens += 1;
+    syncWorldSize();
+    applyWorldTransform();
+    updateScrollbar();
+    showToast('The canvas stretches. Keep throwing.');
+  }
+
+  let sbTimer = null;
+  function updateScrollbar() {
+    const sh = stage.clientHeight, wh = worldH();
+    const th = Math.max(40, (sh / wh) * (sh - 20));
+    scrollbarEl.style.height = th + 'px';
+    scrollbarEl.style.top = 10 + (scrollY / (wh - sh)) * (sh - 20 - th) + 'px';
+    scrollbarEl.hidden = false;
+    scrollbarEl.style.opacity = '1';
+    clearTimeout(sbTimer);
+    sbTimer = setTimeout(() => { scrollbarEl.style.opacity = '0'; }, 800);
+  }
+
+  function applyWorldTransform() {
+    world.style.translate = `0 ${-scrollY}px`;
+  }
+
+  function setScroll(v) {
+    const max = worldH() - stage.clientHeight;
+    if (v > max + 0.5) {
+      // pulling past the bottom edge: keep pulling and the canvas grows
+      growPull += v - max;
+      if (growPull > 150) { growPull = 0; growWorld(); }
+    } else if (v < max - 4) {
+      growPull = 0;
+    }
+    scrollY = clamp(v, 0, worldH() - stage.clientHeight);
+    applyWorldTransform();
+    updateScrollbar();
   }
 
   // ---------- paint: paper ----------
@@ -142,7 +217,7 @@
       ctx.arc(rnd() * 800, rnd() * 1400, 0.4 + rnd() * 1.1, 0, Math.PI * 2);
       ctx.fill();
     }
-    stage.style.backgroundImage = `url(${cv.toDataURL('image/jpeg', 0.8)})`;
+    world.style.backgroundImage = `url(${cv.toDataURL('image/jpeg', 0.8)})`;
   }
 
   // ---------- paint: splatter marks ----------
@@ -305,13 +380,12 @@
   // ---------- marks on stage ----------
 
   function visibleTasks() {
-    if (currentLayer === 'done') return tasks.filter((t) => t.done);
-    return tasks.filter((t) => t.layer === currentLayer);
+    return tasks.filter(isVisible);
   }
 
   function positionMark(el, t) {
     el.style.left = t.x * 100 + '%';
-    el.style.top = t.y * 100 + '%';
+    el.style.top = t.y * stage.clientHeight + 'px';
   }
 
   function buildMark(t, fresh = false) {
@@ -352,7 +426,7 @@
     const r = stage.getBoundingClientRect();
     return {
       x: clamp((clientX - r.left) / r.width, 0.06, 0.94),
-      y: clamp((clientY - r.top) / r.height, 0.12, 0.88),
+      y: clamp((clientY - r.top + scrollY) / stage.clientHeight, 0.12, yMax()),
     };
   }
 
@@ -363,7 +437,6 @@
       id: crypto.randomUUID(),
       title: '',
       color: ink,
-      layer: currentLayer === 'done' ? 'today' : currentLayer,
       x, y,
       seed: Math.floor(Math.random() * 2 ** 31),
       kind,
@@ -455,7 +528,64 @@
 
   stage.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  // ---------- two-finger scroll ----------
+
+  const touchPts = new Map(); // pointerId -> [x, y]
+  let panning = false;
+  let panLastY = 0;
+
+  // a second finger means scroll: abandon whatever the first finger started
+  function cancelForPan() {
+    if (!gest) return;
+    clearTimeout(gest.holdTimer);
+    if (gest.preview) gest.preview.remove();
+    if (gest.task && gest.moved) {
+      gest.task.x = gest.origX;
+      gest.task.y = gest.origY;
+      positionMark(gest.markEl, gest.task);
+    }
+    if (gest.markEl) gest.markEl.classList.remove('dragging');
+    gest = null;
+  }
+
+  function touchDown(e) {
+    if (e.pointerType !== 'touch') return false;
+    touchPts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (touchPts.size === 2) {
+      cancelForPan();
+      panning = true;
+      panLastY = [...touchPts.values()].reduce((a, p) => a + p[1], 0) / touchPts.size;
+    }
+    return panning;
+  }
+
+  function touchMove(e) {
+    if (e.pointerType !== 'touch' || !touchPts.has(e.pointerId)) return false;
+    touchPts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (!panning) return false;
+    const avg = [...touchPts.values()].reduce((a, p) => a + p[1], 0) / touchPts.size;
+    setScroll(scrollY - (avg - panLastY));
+    panLastY = avg;
+    return true;
+  }
+
+  function touchEnd(e) {
+    if (e.pointerType !== 'touch') return;
+    touchPts.delete(e.pointerId);
+    if (panning && touchPts.size < 2) {
+      panning = false;
+      swallowNextClick();
+    }
+  }
+
+  // trackpad two-finger scroll / mouse wheel
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    setScroll(scrollY + e.deltaY);
+  }, { passive: false });
+
   stage.addEventListener('pointerdown', (e) => {
+    if (touchDown(e)) return;
     if (!e.isPrimary) return;
     // an open bubble or popover absorbs the tap
     if (pendingTask) { commitBubble(); return; }
@@ -495,6 +625,7 @@
   });
 
   stage.addEventListener('pointermove', (e) => {
+    if (touchMove(e)) return;
     if (!gest || e.pointerId !== gest.id || gest.consumed) return;
     const dx = e.clientX - gest.lastX;
     const dy = e.clientY - gest.lastY;
@@ -576,8 +707,8 @@
     swallowNextClick(); // the name bubble opens under the cursor
   }
 
-  stage.addEventListener('pointerup', (e) => endGesture(e, false));
-  stage.addEventListener('pointercancel', (e) => endGesture(e, true));
+  stage.addEventListener('pointerup', (e) => { touchEnd(e); endGesture(e, false); });
+  stage.addEventListener('pointercancel', (e) => { touchEnd(e); endGesture(e, true); });
 
   // ---------- completing ----------
 
@@ -592,7 +723,7 @@
       setTimeout(() => {
         redrawMark(t);
         el.classList.remove('smearing');
-        if (currentLayer === 'done') { /* already visible */ }
+        if (!isVisible(t)) renderMarks(); // gray is filtered off
       }, 150);
     }
     showToast('Smeared. Part of the canvas now.', 'Undo', () => restoreTask(t));
@@ -602,8 +733,8 @@
   function restoreTask(t) {
     t.done = false;
     t.doneAt = null;
-    if (currentLayer === 'done') renderMarks();
-    else redrawMark(t);
+    if (markEls.has(t.id) && isVisible(t)) redrawMark(t);
+    else renderMarks();
     saveTasks();
   }
 
@@ -628,7 +759,7 @@
       </div>
       <div class="pop-meta">
         <span class="dot" style="background:${COLORS[t.color]}"></span>
-        <span>${layerOf(t.layer).name}</span>
+        <span>${MEANINGS[t.color]}</span>
         ${dueTxt ? `<span>·</span><span class="${overdue ? 'overdue' : ''}">${dueTxt}</span>` : ''}
         ${t.done ? '<span>·</span><span>Smeared</span>' : ''}
       </div>
@@ -664,6 +795,7 @@
         saveTasks();
         redrawMark(t);
         popover.querySelectorAll('[data-color]').forEach((x) => x.classList.toggle('on', x === b));
+        if (!isVisible(t)) { closePopover(); renderMarks(); } // recolored into a hidden focus
       }));
     const dateInput = $('#popDate');
     $('#popDue').addEventListener('click', () => {
@@ -718,63 +850,24 @@
     return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  // ---------- layers ----------
+  // ---------- focus (color filter) ----------
 
-  function setLayer(id) {
-    currentLayer = id;
-    localStorage.setItem(LS.layer, id);
-    layerTitle.textContent = layerOf(id).name;
-    renderMarks();
-  }
-
-  function drawLayerThumb(cv, layerId) {
-    const w = 54, h = 38;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    cv.width = w * dpr; cv.height = h * dpr;
-    const ctx = cv.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#efe7d6';
-    ctx.fillRect(0, 0, w, h);
-    const ts = layerId === 'done' ? tasks.filter((t) => t.done) : tasks.filter((t) => t.layer === layerId);
-    for (const t of ts) {
-      ctx.fillStyle = t.done ? COLORS.gray : COLORS[t.color];
-      ctx.globalAlpha = t.done ? 0.55 : 0.9;
-      ctx.beginPath();
-      ctx.arc(t.x * w, t.y * h, 1.6 + t.energy * 2.6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  function buildLayersSheet() {
-    const ul = $('#layerList');
-    ul.textContent = '';
-    for (const L of LAYERS) {
-      const open = L.id === 'done'
-        ? tasks.filter((t) => t.done).length
-        : tasks.filter((t) => t.layer === L.id && !t.done).length;
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.className = 'layer-row' + (L.id === currentLayer ? ' current' : '');
-      const thumb = document.createElement('canvas');
-      thumb.className = 'layer-thumb';
-      drawLayerThumb(thumb, L.id);
-      btn.appendChild(thumb);
-      const name = document.createElement('span');
-      name.className = 'layer-name';
-      name.textContent = L.name;
-      btn.appendChild(name);
-      const count = document.createElement('span');
-      count.className = 'layer-count';
-      count.textContent = open || '';
-      btn.appendChild(count);
-      const dot = document.createElement('span');
-      dot.className = 'layer-dot';
-      dot.style.background = L.dot;
-      btn.appendChild(dot);
-      btn.addEventListener('click', () => { setLayer(L.id); closeSheets(); });
-      li.appendChild(btn);
-      ul.appendChild(li);
+  function buildFocusSheet() {
+    const row = $('#focusRow');
+    row.textContent = '';
+    for (const c of Object.keys(COLORS)) {
+      const b = document.createElement('button');
+      b.className = 'focus-swatch' + (vis[c] ? ' on' : '');
+      b.style.background = COLORS[c];
+      b.setAttribute('aria-label', `${vis[c] ? 'Hide' : 'Show'} ${MEANINGS[c]}`);
+      b.addEventListener('click', () => {
+        vis[c] = !vis[c];
+        saveVis();
+        b.classList.toggle('on', vis[c]);
+        b.setAttribute('aria-label', `${vis[c] ? 'Hide' : 'Show'} ${MEANINGS[c]}`);
+        renderMarks();
+      });
+      row.appendChild(b);
     }
   }
 
@@ -860,18 +953,18 @@
     closePopover();
     if (pendingTask) commitBubble();
     backdrop.hidden = false;
-    if (sheet === layersSheet) buildLayersSheet();
+    if (sheet === focusSheet) buildFocusSheet();
     if (sheet === moodSheet) buildMoodSheet();
     sheet.hidden = false;
   }
 
   function closeSheets() {
     backdrop.hidden = true;
-    layersSheet.hidden = true;
+    focusSheet.hidden = true;
     moodSheet.hidden = true;
   }
 
-  $('#layersBtn').addEventListener('click', () => openSheet(layersSheet));
+  $('#focusBtn').addEventListener('click', () => openSheet(focusSheet));
   $('#moodBtn').addEventListener('click', () => openSheet(moodSheet));
   backdrop.addEventListener('click', closeSheets);
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', closeSheets));
@@ -884,6 +977,8 @@
     if (!n) { closeSheets(); return; }
     tasks = tasks.filter((t) => !t.done);
     saveTasks();
+    fitWorld();
+    setScroll(scrollY);
     renderMarks();
     closeSheets();
     showToast(`${n} smeared ${n === 1 ? 'mark' : 'marks'} scraped off.`);
@@ -946,6 +1041,10 @@
     try {
       tasks = JSON.parse(localStorage.getItem(LS.tasks) || '[]');
     } catch { tasks = []; }
+    // migrate: layers are gone — the color is the only category now
+    for (const t of tasks) delete t.layer;
+    localStorage.removeItem('pollock.layer');
+    fitWorld();
     saveTasks();
   }
 
@@ -964,6 +1063,14 @@
   load();
   paintPaper();
   setInk(ink);
-  setLayer(currentLayer);
+  renderMarks();
+  window.addEventListener('resize', () => {
+    // mark tops are in px of the viewport height — reproject them
+    for (const t of visibleTasks()) {
+      const el = markEls.get(t.id);
+      if (el) positionMark(el, t);
+    }
+    setScroll(scrollY);
+  });
   pulse();
 })();

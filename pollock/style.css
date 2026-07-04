@@ -40,12 +40,33 @@ html, body {
   inset: 0;
   touch-action: none;
   background-color: var(--paper);
-  background-size: cover;
-  background-position: center;
   cursor: crosshair;
 }
 
+.world {
+  position: absolute;
+  left: 0; top: 0;
+  width: 100%;
+  height: 300%; /* grows on demand — app.js sets the real height inline */
+  background-size: 100% auto;
+  background-repeat: repeat-y;
+  background-position: top;
+  will-change: translate;
+}
+
 .marks { position: absolute; inset: 0; }
+
+.scrollbar {
+  position: absolute;
+  right: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: rgba(24, 21, 16, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 5;
+}
 
 .mark {
   position: absolute;
@@ -367,50 +388,29 @@ html, body {
   touch-action: manipulation;
 }
 
-.layer-list, .mood-list { list-style: none; }
+.mood-list { list-style: none; }
 
-.layer-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  border: none;
-  background: transparent;
-  color: inherit;
-  padding: 9px 8px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  touch-action: manipulation;
-}
-.layer-row.current { background: rgba(255, 255, 255, 0.09); }
-.layer-thumb {
-  width: 54px; height: 38px;
-  border-radius: 6px;
-  flex: none;
-  background: var(--paper);
-}
-.layer-name { font-size: 16px; font-weight: 600; flex: 1; }
-.layer-count { font-size: 13px; color: var(--chrome-dim); }
-.layer-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+/* focus (color filter) */
 
-.legend {
+.focus-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin: 18px 8px 4px;
-  font-size: 12px;
-  color: var(--chrome-dim);
+  justify-content: center;
+  gap: 20px;
+  padding: 14px 6px 4px;
 }
-.legend i {
-  display: inline-block;
-  width: 9px; height: 9px;
+.focus-swatch {
+  width: 40px; height: 40px;
   border-radius: 50%;
-  margin-right: 5px;
-  vertical-align: -1px;
+  border: 2px solid rgba(242, 238, 226, 0.35);
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+  opacity: 0.4;
 }
-.legend i[style*="#181510"] { outline: 1px solid rgba(255,255,255,0.25); }
+.focus-swatch.on {
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--chrome), 0 0 0 6px var(--chrome-ink);
+}
 
 .sheet-action {
   display: block;
