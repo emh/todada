@@ -8,6 +8,7 @@
     tasks: 'basq.tasks',
     pen: 'basq.pen',
     vis: 'basq.vis',
+    crews: 'basq.crews',
     archive: 'basq.archive',
   };
 
@@ -28,6 +29,10 @@
   };
   const GOLD = '#d9a916';
   const INK = '#141414';
+  // default fill for a closed shape: a companion color to the outline
+  const COMPLEMENT = { black: 'yellow', yellow: 'red', red: 'blue', blue: 'white' };
+  // fill palette = outline palette, but white takes black's place
+  const FILL_COLORS = { white: '#f5f1e6', red: '#c92f1e', blue: '#2b4ea3', yellow: '#e3b71e' };
 
   const PRI = ['king', 'queen', 'bishop', 'knight', 'pawn', 'ghost'];
   const PRI_META = {
@@ -39,22 +44,20 @@
     ghost:  { label: 'LET IT GO', scale: 0.75, crown: null },
   };
 
-  const LAYERS = [
-    { id: 'today', name: 'Today', color: GOLD },
-    { id: 'work', name: 'Work', color: COLORS.blue },
-    { id: 'personal', name: 'Personal', color: COLORS.red },
-    { id: 'ideas', name: 'Ideas', color: COLORS.yellow },
-    { id: 'waiting', name: 'Waiting', color: '#8f8a80' },
-  ];
+  const FILL_NAMES = { white: 'White', red: 'Red', blue: 'Blue', yellow: 'Yellow' };
 
   const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
   // ---------- state ----------
 
   let tasks = [];
+  let crews = {}; // cid -> { stacked, x, y } (stack anchor: x = width fraction, y = viewport heights)
   let pen = localStorage.getItem(LS.pen) || 'black';
-  let vis = { today: true, work: true, personal: true, ideas: true, waiting: true, done: true };
-  try { vis = { ...vis, ...JSON.parse(localStorage.getItem(LS.vis) || '{}') }; } catch { /* defaults */ }
+  let vis = { white: true, red: true, blue: true, yellow: true };
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS.vis) || '{}');
+    for (const k of Object.keys(vis)) if (typeof saved[k] === 'boolean') vis[k] = saved[k];
+  } catch { /* defaults */ }
   let mode = 'normal'; // 'normal' | 'draw' | 'lasso'
   let drawStrokes = []; // in-progress drawing, px points
   let curStroke = null;
@@ -67,6 +70,8 @@
 
   const $ = (s) => document.querySelector(s);
   const stage = $('#stage');
+  const world = $('#world');
+  const scrollbarEl = $('#scrollbar');
   const marksEl = $('#marks');
   const ringsEl = $('#rings');
   const scratch = $('#scratch');
@@ -97,6 +102,127 @@
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const DPR = () => Math.min(2, window.devicePixelRatio || 1);
 
+  // ---------- the scrolling world ----------
+  // the canvas grows on demand: it starts MIN_SCREENS viewports tall and adds
+  // a screen whenever you keep pulling past the bottom edge. x is a fraction
+  // of the viewport width; y is measured in viewport heights (so the world
+  // can grow without moving existing marks).
+
+  const MIN_SCREENS = 3;
+  let screens = MIN_SCREENS;
+  const worldH = () => stage.clientHeight * screens;
+  const yMax = () => screens - 0.12;
+  let scrollY = 0;
+
+  function syncWorldSize() {
+    world.style.height = screens * 100 + '%';
+  }
+
+  // bottom-most content, in viewport heights
+  function contentBottom() {
+    let b = 0;
+    for (const t of tasks) b = Math.max(b, t.y || 0);
+    for (const c of Object.values(crews)) {
+      if (c && c.stacked && typeof c.y === 'number') b = Math.max(b, c.y);
+    }
+    return b;
+  }
+
+  // trim empty trailing screens (load / archive / erase)
+  function fitWorld() {
+    screens = Math.max(MIN_SCREENS, Math.ceil(contentBottom() + 0.55));
+    syncWorldSize();
+  }
+
+  let growPull = 0; // accumulated pull past the bottom edge, in px
+  function growWorld() {
+    screens += 1;
+    syncWorldSize();
+    applyWorldTransform();
+    updateScrollbar();
+    showToast('The canvas grows. Keep going.');
+  }
+
+  let sbTimer = null;
+  function updateScrollbar() {
+    const sh = stage.clientHeight, wh = worldH();
+    const th = Math.max(40, (sh / wh) * (sh - 20));
+    scrollbarEl.style.height = th + 'px';
+    scrollbarEl.style.top = 10 + (scrollY / (wh - sh)) * (sh - 20 - th) + 'px';
+    scrollbarEl.hidden = false;
+    scrollbarEl.style.opacity = '1';
+    clearTimeout(sbTimer);
+    sbTimer = setTimeout(() => { scrollbarEl.style.opacity = '0'; }, 800);
+  }
+
+  // ---------- overview (pinch-zoom out) ----------
+
+  let overview = false;
+
+  function ovParams() {
+    const sw = stage.clientWidth, sh = stage.clientHeight;
+    const s = Math.min((sh - 110) / worldH(), 0.9);
+    return { s, tx: (sw - sw * s) / 2, ty: 62 };
+  }
+
+  function applyWorldTransform() {
+    if (overview) {
+      const { s, tx, ty } = ovParams();
+      world.style.translate = `${tx}px ${ty}px`;
+      world.style.scale = String(s);
+    } else {
+      world.style.translate = `0 ${-scrollY}px`;
+      world.style.scale = '1';
+    }
+  }
+
+  function setScroll(v) {
+    const max = worldH() - stage.clientHeight;
+    if (v > max + 0.5) {
+      // pulling past the bottom edge: keep pulling and the canvas grows
+      growPull += v - max;
+      if (growPull > 150) { growPull = 0; growWorld(); }
+    } else if (v < max - 4) {
+      growPull = 0;
+    }
+    scrollY = clamp(v, 0, worldH() - stage.clientHeight);
+    applyWorldTransform();
+    if (!overview) updateScrollbar();
+  }
+
+  function animWorld() {
+    world.classList.add('anim');
+    setTimeout(() => world.classList.remove('anim'), 420);
+  }
+
+  function enterOverview() {
+    if (overview) return;
+    if (mode === 'draw') exitDraw();
+    if (mode === 'lasso') exitLasso();
+    closePanels();
+    overview = true;
+    stage.classList.add('overview');
+    scrollbarEl.style.opacity = '0';
+    animWorld();
+    applyWorldTransform();
+    showToast('The whole day at once. Tap where you want to go.');
+  }
+
+  function exitOverview(clientX, clientY) {
+    if (!overview) return;
+    if (clientY != null) {
+      const { s, ty } = ovParams();
+      const wy = (clientY - stage.getBoundingClientRect().top - ty) / s;
+      scrollY = clamp(wy - stage.clientHeight / 2, 0, worldH() - stage.clientHeight);
+    }
+    overview = false;
+    stage.classList.remove('overview');
+    hideToast();
+    animWorld();
+    applyWorldTransform();
+    swallowNextClick();
+  }
+
   function localISO(offsetDays = 0) {
     const d = new Date();
     d.setDate(d.getDate() + offsetDays);
@@ -112,6 +238,7 @@
   }
   const saveTasks = () => localStorage.setItem(LS.tasks, JSON.stringify(tasks));
   const saveVis = () => localStorage.setItem(LS.vis, JSON.stringify(vis));
+  const saveCrews = () => localStorage.setItem(LS.crews, JSON.stringify(crews));
 
   // ---------- paper + doodles ----------
 
@@ -157,7 +284,7 @@
       ctx.fill();
     }
     paperCv = cv;
-    stage.style.backgroundImage = `url(${cv.toDataURL('image/jpeg', 0.8)})`;
+    world.style.backgroundImage = `url(${cv.toDataURL('image/jpeg', 0.8)})`;
   }
 
   function doodleCrown(ctx, s, rnd) {
@@ -262,6 +389,102 @@
     return lines;
   }
 
+  const fillColorOf = (t) => FILL_COLORS[catOf(t)] || null;
+
+  // jittered outline points for a cleaned-up detected shape (normalized geometry -> px)
+  function shapeOutlinePts(kind, x, y, w, h, rnd) {
+    const j = (a) => (rnd() - 0.5) * 2 * a;
+    const pts = [];
+    const seg = (a, b, steps, amt) => {
+      for (let i = 0; i < steps; i++) {
+        const u = i / steps;
+        pts.push([x + (a[0] + (b[0] - a[0]) * u) * w + j(amt), y + (a[1] + (b[1] - a[1]) * u) * h + j(amt)]);
+      }
+    };
+    if (kind === 'rect') {
+      const cs = [[0, 0], [1, 0], [1, 1], [0, 1]];
+      for (let e = 0; e < 4; e++) seg(cs[e], cs[(e + 1) % 4], 5, 2.4);
+    } else if (kind === 'circle') {
+      const n = 36, a0 = rnd() * Math.PI * 2;
+      for (let i = 0; i < n; i++) {
+        const a = a0 + (i / n) * Math.PI * 2;
+        pts.push([
+          x + w / 2 + Math.cos(a) * (w / 2) * (1 + (rnd() - 0.5) * 0.055),
+          y + h / 2 + Math.sin(a) * (h / 2) * (1 + (rnd() - 0.5) * 0.055),
+        ]);
+      }
+    } else { // crown — always cleaned up to the classic three points
+      const P = [[0.05, 0.93], [0.02, 0.33], [0.28, 0.56], [0.5, 0.07], [0.72, 0.56], [0.98, 0.33], [0.95, 0.93]];
+      for (let i = 0; i < P.length; i++) seg(P[i], P[(i + 1) % P.length], i === P.length - 1 ? 6 : 3, 1.8);
+    }
+    return pts;
+  }
+
+  // a detected shape IS the mark: filled, outlined, title inside
+  function drawShapeMark(cv, t, m) {
+    const dpr = DPR();
+    const { meta, fs, lineH, lines, blockW, blockH } = m;
+    const need = {
+      rect: { w: blockW * 1.18, h: blockH * 1.45 },
+      circle: { w: blockW * 1.5, h: blockH * 1.9 },
+      crown: { w: blockW * 1.3, h: blockH * 2.6 },
+    }[t.shape];
+    let SW = Math.max(t.strokesW || 0, need.w);
+    let SH = Math.max(t.strokesH || 0, need.h);
+    if (t.shape === 'crown') {
+      SH = clamp(SH, SW * 0.55, SW * 0.85);
+      if (SH < need.h) { SH = need.h; SW = Math.max(SW, SH / 0.85); }
+    }
+    const M = 22;
+    const W = Math.ceil(SW + M * 2), H = Math.ceil(SH + M * 2);
+    cv.width = W * dpr; cv.height = H * dpr;
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const rnd = mulberry32(t.seed);
+    const col = COLORS[t.color] || INK;
+    const fillCol = fillColorOf(t);
+
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate((rnd() - 0.5) * 0.05);
+    ctx.translate(-W / 2, -H / 2);
+    const pts = shapeOutlinePts(t.shape, M, M, SW, SH, rnd);
+    if (fillCol) {
+      ctx.beginPath();
+      pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+      ctx.closePath();
+      ctx.fillStyle = fillCol;
+      ctx.fill();
+    }
+    marker(ctx, [...pts, pts[0]], col, 4.6, t.seed % 7);
+
+    ctx.font = `${fs}px "Permanent Marker", cursive`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // title ink must contrast the fill: light fills carry dark/outline ink
+    ctx.fillStyle = fillCol
+      ? (t.fill === 'yellow' ? INK
+        : t.fill === 'white' ? (t.color === 'yellow' ? GOLD : col)
+        : '#f5f1e6')
+      : (t.color === 'yellow' ? GOLD : col);
+    const ty = t.shape === 'crown' ? M + SH * 0.7 : H / 2;
+    const ly0 = ty - ((lines.length - 1) * lineH) / 2;
+    lines.forEach((l, i) => {
+      ctx.save();
+      ctx.translate(W / 2, ly0 + i * lineH);
+      ctx.rotate((rnd() - 0.5) * 0.035);
+      ctx.fillText(l, (rnd() - 0.5) * 3, 0);
+      ctx.restore();
+    });
+    ctx.restore();
+
+    if (meta.crown) {
+      drawCrownGlyph(ctx, W / 2 + SW / 2 - meta.crownW * 0.7, H / 2 - SH / 2 - meta.crownW * 0.55, meta.crownW, meta.crown);
+    }
+    if (t.done) drawSlashes(ctx, t, W, H);
+  }
+
   function drawMark(cv, t) {
     const dpr = DPR();
     const meta = PRI_META[t.priority] || PRI_META.knight;
@@ -273,6 +496,11 @@
     const textW = Math.max(...lines.map((l) => measure.measureText(l).width));
     const blockW = Math.ceil(textW + fs * 1.3);
     const blockH = Math.ceil(lines.length * lineH + fs * 0.95);
+
+    if (t.shape) {
+      drawShapeMark(cv, t, { meta, fs, lineH, lines, blockW, blockH });
+      return;
+    }
 
     const sW = t.strokes ? t.strokesW : 0;
     const sH = t.strokes ? t.strokesH : 0;
@@ -290,6 +518,21 @@
     // user-drawn strokes behind the block
     if (t.strokes) {
       const ox = cx - sW / 2, oy = cy - sH / 2;
+      // any enclosed stroke gets filled solid first
+      const fillCol = fillColorOf(t);
+      if (fillCol && t.fillIdx && t.fillIdx.length) {
+        ctx.fillStyle = fillCol;
+        for (const fi of t.fillIdx) {
+          const s = t.strokes[fi];
+          if (!s || s.length < 3) continue;
+          ctx.beginPath();
+          s.forEach(([px, py], i) => (i
+            ? ctx.lineTo(ox + px * sW, oy + py * sH)
+            : ctx.moveTo(ox + px * sW, oy + py * sH)));
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
       for (const s of t.strokes) {
         marker(ctx, s.map(([px, py]) => [ox + px * sW, oy + py * sH]), col, 4.4, t.seed % 7);
       }
@@ -397,11 +640,39 @@
 
   // ---------- marks on stage ----------
 
-  const isVisible = (t) => vis[t.layer] && (!t.done || vis.done);
+  // the fill color IS the category/layer
+  const catOf = (t) => (FILL_COLORS[t.fill] ? t.fill : COMPLEMENT[t.color] || 'white');
+  const isVisible = (t) => vis[catOf(t)] !== false;
+
+  // messy-pile offset for a stacked crew member (seeded, stable)
+  function stackOffset(t, members) {
+    const i = Math.max(0, members.findIndex((m) => m.id === t.id));
+    const rnd = mulberry32((t.seed || 1) + 11);
+    return [(rnd() - 0.5) * 26, i * 9 - (members.length - 1) * 4.5 + (rnd() - 0.5) * 8];
+  }
 
   function positionMark(el, t) {
-    el.style.left = t.x * 100 + '%';
-    el.style.top = t.y * 100 + '%';
+    const c = t.cluster && crews[t.cluster];
+    let ox = 0, oy = 0;
+    if (c && c.stacked) {
+      [ox, oy] = stackOffset(t, clusterMembers(t.cluster));
+      el.style.left = c.x * 100 + '%';
+      el.style.top = c.y * stage.clientHeight + 'px';
+    } else {
+      el.style.left = t.x * 100 + '%';
+      el.style.top = t.y * stage.clientHeight + 'px';
+    }
+    el.style.translate = `calc(-50% + ${ox}px) calc(-50% + ${oy}px)`;
+  }
+
+  // where the mark actually sits, in WORLD px (screen y = world y - scrollY)
+  function visPosPx(t) {
+    const c = t.cluster && crews[t.cluster];
+    if (c && c.stacked) {
+      const [ox, oy] = stackOffset(t, clusterMembers(t.cluster));
+      return [c.x * stage.clientWidth + ox, c.y * stage.clientHeight + oy];
+    }
+    return [t.x * stage.clientWidth, t.y * stage.clientHeight];
   }
 
   function buildMark(t, fresh = false) {
@@ -441,7 +712,7 @@
     const r = stage.getBoundingClientRect();
     return {
       x: clamp((clientX - r.left) / r.width, 0.08, 0.92),
-      y: clamp((clientY - r.top) / r.height, 0.12, 0.85),
+      y: clamp((clientY - r.top + scrollY) / stage.clientHeight, 0.09, yMax()),
     };
   }
 
@@ -463,7 +734,7 @@
         const el = markEls.get(m.id);
         if (!el) continue;
         const w = el.offsetWidth, h = el.offsetHeight;
-        const cx = m.x * stage.clientWidth, cy = m.y * stage.clientHeight;
+        const [cx, cy] = visPosPx(m);
         x0 = Math.min(x0, cx - w / 2); y0 = Math.min(y0, cy - h / 2);
         x1 = Math.max(x1, cx + w / 2); y1 = Math.max(y1, cy + h / 2);
       }
@@ -498,16 +769,60 @@
         ctx.globalAlpha = pass ? 0.5 : 0.85;
         ctx.stroke();
       }
+      // stacked pile: scrawl the crew size on the ring
+      if (crews[cid] && crews[cid].stacked) {
+        ctx.globalAlpha = 1;
+        ctx.font = '17px "Permanent Marker", cursive';
+        ctx.fillStyle = COLORS.blue;
+        ctx.textAlign = 'center';
+        ctx.fillText(String(members.length), w - 10, 20);
+      }
       el.appendChild(cv);
       ringsEl.appendChild(el);
       ringEls.set(cid, { el, box: { x0, y0, x1, y1 } });
     }
   }
 
-  function breakCrew(cid) {
-    for (const t of tasks) if (t.cluster === cid) t.cluster = null;
-    saveTasks();
+  function repositionCrew(members) {
+    for (const m of members) {
+      const el = markEls.get(m.id);
+      if (!el) continue;
+      el.classList.add('anim');
+      positionMark(el, m);
+      setTimeout(() => el.classList.remove('anim'), 380);
+    }
     buildRings();
+  }
+
+  function spreadCrew(cid) {
+    if (!crews[cid]) return;
+    crews[cid].stacked = false;
+    saveCrews();
+    const members = clusterMembers(cid);
+    repositionCrew(members);
+    showToast(`A crew of ${members.length}. Slash one, or stack them again.`, 'BREAK UP', () => breakCrew(cid));
+  }
+
+  function stackCrew(cid) {
+    const members = clusterMembers(cid);
+    if (members.length < 2) return;
+    const vps = members.map(visPosPx);
+    const c = crews[cid] || (crews[cid] = {});
+    c.stacked = true;
+    c.x = clamp(vps.reduce((a, p) => a + p[0], 0) / vps.length / stage.clientWidth, 0.1, 0.9);
+    c.y = clamp(vps.reduce((a, p) => a + p[1], 0) / vps.length / stage.clientHeight, 0.09, yMax());
+    saveCrews();
+    repositionCrew(members);
+    showToast('Stacked. They move as one.');
+  }
+
+  function breakCrew(cid) {
+    const members = tasks.filter((t) => t.cluster === cid);
+    for (const t of members) t.cluster = null;
+    delete crews[cid];
+    saveTasks();
+    saveCrews();
+    repositionCrew(members);
   }
 
   // ---------- scratch canvas (draw + lasso + slash ink) ----------
@@ -548,7 +863,95 @@
 
   stage.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  // ---------- two-finger scroll ----------
+
+  const touchPts = new Map(); // pointerId -> [x, y]
+  let panning = false;
+  let panLastY = 0;
+  let pinchDist = 0;
+  let ovTap = null; // single pointer that may become a tap-to-exit in overview
+
+  // redraw committed draw-mode strokes after a cancelled in-progress one
+  function redrawDrawInk() {
+    clearScratch();
+    for (const s of drawStrokes) {
+      for (let i = 1; i < s.length; i++) scratchSegment(s[i - 1], s[i], COLORS[pen], 4.4);
+    }
+  }
+
+  // a second finger means scroll: abandon whatever the first finger started
+  function cancelForPan() {
+    if (gest) {
+      gest = null;
+      document.querySelectorAll('.mark.dragging').forEach((el) => el.classList.remove('dragging'));
+      clearScratch();
+      buildRings();
+    }
+    if (mode === 'draw' && curStroke) { curStroke = null; redrawDrawInk(); }
+    if (mode === 'lasso' && lassoPts) { lassoPts = null; clearScratch(); }
+  }
+
+  function touchDown(e) {
+    if (e.pointerType !== 'touch') return false;
+    touchPts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (touchPts.size === 2) {
+      cancelForPan();
+      ovTap = null; // two fingers = pinch/pan, not a tap
+      panning = true;
+      panLastY = [...touchPts.values()].reduce((a, p) => a + p[1], 0) / touchPts.size;
+      const [p1, p2] = [...touchPts.values()];
+      pinchDist = Math.hypot(p1[0] - p2[0], p1[1] - p2[1]);
+    }
+    return panning;
+  }
+
+  function touchMove(e) {
+    if (e.pointerType !== 'touch' || !touchPts.has(e.pointerId)) return false;
+    touchPts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (!panning) return false;
+    const pts = [...touchPts.values()];
+    if (pts.length === 2 && pinchDist > 0) {
+      const d = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]);
+      if (!overview && d < pinchDist * 0.72) { enterOverview(); pinchDist = d; }
+      else if (overview && d > pinchDist * 1.35) { exitOverview(); pinchDist = d; }
+    }
+    const avg = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    if (!overview) setScroll(scrollY - (avg - panLastY));
+    panLastY = avg;
+    return true;
+  }
+
+  function touchEnd(e) {
+    if (e.pointerType !== 'touch') return;
+    touchPts.delete(e.pointerId);
+    if (panning && touchPts.size < 2) {
+      panning = false;
+      swallowNextClick();
+    }
+  }
+
+  // trackpad two-finger scroll / mouse wheel; ctrl+wheel = trackpad pinch
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.ctrlKey) {
+      if (e.deltaY > 0) enterOverview();
+      else exitOverview();
+      return;
+    }
+    if (!overview) setScroll(scrollY + e.deltaY);
+  }, { passive: false });
+
+  // mouse fallback: double-click empty canvas to zoom out
+  stage.addEventListener('dblclick', (e) => {
+    if (!overview && mode === 'normal' && !e.target.closest('.mark')) enterOverview();
+  });
+
   stage.addEventListener('pointerdown', (e) => {
+    if (touchDown(e)) return;
+    if (overview) {
+      if (touchPts.size <= 1) ovTap = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      return; // no gestures while zoomed out
+    }
     if (!e.isPrimary) return;
     const r = stage.getBoundingClientRect();
     const pt = [e.clientX - r.left, e.clientY - r.top];
@@ -566,6 +969,8 @@
 
     const markEl = e.target.closest('.mark');
     const task = markEl ? tasks.find((t) => t.id === markEl.dataset.id) : null;
+    // only a *stacked* crew moves/slashes as one; spread members act individually
+    const stacked = !!(task && task.cluster && crews[task.cluster] && crews[task.cluster].stacked);
     gest = {
       id: e.pointerId,
       startX: e.clientX, startY: e.clientY,
@@ -575,13 +980,16 @@
       sub: null, // 'drag' | 'slash'
       path: 0,
       slashPts: [pt],
-      crew: task && task.cluster ? clusterMembers(task.cluster) : null,
-      ringInfo: task && task.cluster ? ringEls.get(task.cluster) : null,
+      crewStacked: stacked,
+      crew: stacked ? clusterMembers(task.cluster) : null,
+      ringInfo: stacked ? ringEls.get(task.cluster) : null,
     };
     try { stage.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
   });
 
   stage.addEventListener('pointermove', (e) => {
+    if (touchMove(e)) return;
+    if (overview) return;
     const r = stage.getBoundingClientRect();
     const pt = [e.clientX - r.left, e.clientY - r.top];
 
@@ -608,11 +1016,17 @@
     }
     if (gest.sub === 'drag') {
       const fdx = (e.clientX - gest.lastX) / r.width;
-      const fdy = (e.clientY - gest.lastY) / r.height;
+      const fdy = (e.clientY - gest.lastY) / stage.clientHeight;
+      if (gest.crewStacked) {
+        // move the stack anchor too; members' spread spots shift with it
+        const c = crews[gest.task.cluster];
+        c.x = clamp(c.x + fdx, 0.05, 0.95);
+        c.y = clamp(c.y + fdy, 0.06, yMax());
+      }
       const targets = gest.crew || [gest.task];
       for (const t of targets) {
         t.x = clamp(t.x + fdx, 0.05, 0.95);
-        t.y = clamp(t.y + fdy, 0.08, 0.9);
+        t.y = clamp(t.y + fdy, 0.06, yMax());
         const el = markEls.get(t.id);
         if (el) { el.classList.add('dragging'); positionMark(el, t); }
       }
@@ -649,11 +1063,19 @@
     if (g.task) {
       if (g.sub === 'drag') {
         saveTasks();
+        saveCrews();
         buildRings();
       } else if (g.sub === 'slash') {
         clearScratch();
         const diag = Math.hypot(g.markEl.offsetWidth, g.markEl.offsetHeight);
-        if (g.path > diag * 0.5) { crossOut(g.task); swallowNextClick(); }
+        if (g.path > diag * 0.5) {
+          if (g.crewStacked) crossOutCrew(g.task.cluster);
+          else crossOut(g.task);
+          swallowNextClick();
+        }
+      } else if (g.crewStacked) {
+        spreadCrew(g.task.cluster);
+        swallowNextClick();
       } else {
         openInspect(g.task);
         swallowNextClick();
@@ -661,13 +1083,13 @@
       return;
     }
 
-    // tap on empty canvas: crew ring?
+    // tap on empty canvas: crew ring toggles stack <-> spread
     if (g.path < 10) {
-      const px = g.startX - r.left, py = g.startY - r.top;
+      const px = g.startX - r.left, py = g.startY - r.top + scrollY;
       for (const [cid, { box }] of ringEls) {
         if (px >= box.x0 && px <= box.x1 && py >= box.y0 && py <= box.y1) {
-          const n = clusterMembers(cid).length;
-          showToast(`A crew of ${n}. They move together.`, 'BREAK UP', () => breakCrew(cid));
+          if (crews[cid] && crews[cid].stacked) spreadCrew(cid);
+          else stackCrew(cid);
           swallowNextClick();
           return;
         }
@@ -675,8 +1097,24 @@
     }
   }
 
-  stage.addEventListener('pointerup', (e) => endGesture(e, false));
-  stage.addEventListener('pointercancel', (e) => endGesture(e, true));
+  stage.addEventListener('pointerup', (e) => {
+    touchEnd(e);
+    if (overview) {
+      // only a clean single tap (not the tail end of a pinch) dives back in
+      if (ovTap && ovTap.id === e.pointerId
+        && Math.hypot(e.clientX - ovTap.x, e.clientY - ovTap.y) < 14) {
+        exitOverview(e.clientX, e.clientY);
+      }
+      ovTap = null;
+      return;
+    }
+    endGesture(e, false);
+  });
+  stage.addEventListener('pointercancel', (e) => {
+    touchEnd(e);
+    if (overview) { ovTap = null; return; }
+    endGesture(e, true);
+  });
 
   // ---------- completing ----------
 
@@ -697,6 +1135,36 @@
     showToast('Crossed out. Part of your history.', 'UNDO', () => restoreTask(t));
   }
 
+  function crossOutCrew(cid) {
+    const members = tasks.filter((t) => t.cluster === cid && !t.done);
+    if (!members.length) return;
+    for (const t of members) {
+      t.done = true;
+      t.doneAt = Date.now();
+      t.slashSeed = Math.floor(Math.random() * 2 ** 31);
+    }
+    saveTasks();
+    for (const t of members) {
+      const el = markEls.get(t.id);
+      if (el) {
+        el.classList.add('slashing');
+        setTimeout(() => {
+          redrawMark(t);
+          el.classList.remove('slashing');
+        }, 130);
+      }
+    }
+    showToast('The whole crew. Crossed out.', 'UNDO', () => {
+      for (const t of members) {
+        t.done = false;
+        t.doneAt = null;
+        t.slashSeed = null;
+      }
+      saveTasks();
+      members.forEach((t) => redrawMark(t));
+    });
+  }
+
   function restoreTask(t) {
     t.done = false;
     t.doneAt = null;
@@ -708,17 +1176,160 @@
 
   function discardTask(t) {
     tasks = tasks.filter((x) => x.id !== t.id);
+    pruneCrews(); // erasing can leave a crew of one
     saveTasks();
+    saveCrews();
     const el = markEls.get(t.id);
     if (el) {
       el.classList.add('fading');
-      setTimeout(() => { el.remove(); markEls.delete(t.id); buildRings(); updateHint(); }, 300);
+      setTimeout(() => { el.remove(); markEls.delete(t.id); renderMarks(); }, 300);
     }
+  }
+
+  // ---------- shape detection ----------
+
+  function strokeLen(s) {
+    let L = 0;
+    for (let i = 1; i < s.length; i++) L += Math.hypot(s[i][0] - s[i - 1][0], s[i][1] - s[i - 1][1]);
+    return L;
+  }
+
+  function bboxOf(pts) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of pts) {
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    }
+    return { x0, y0, w: x1 - x0, h: y1 - y0, diag: Math.hypot(x1 - x0, y1 - y0) };
+  }
+
+  // uniform arc-length resampling so detection ignores drawing speed
+  function resamplePts(s, n) {
+    const L = strokeLen(s);
+    if (!L || s.length < 2) return s.slice();
+    const step = L / (n - 1);
+    const out = [s[0]];
+    let acc = 0, prev = s[0];
+    for (let i = 1; i < s.length; i++) {
+      let cur = s[i];
+      let d = Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+      while (acc + d >= step && out.length < n) {
+        const u = (step - acc) / d;
+        const np = [prev[0] + (cur[0] - prev[0]) * u, prev[1] + (cur[1] - prev[1]) * u];
+        out.push(np);
+        prev = np;
+        d = Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+        acc = 0;
+      }
+      acc += d;
+      prev = cur;
+    }
+    while (out.length < n) out.push(s[s.length - 1]);
+    return out;
+  }
+
+  const strokeClosed = (s, diag) =>
+    Math.hypot(s[0][0] - s[s.length - 1][0], s[0][1] - s[s.length - 1][1]) < Math.max(22, diag * 0.22);
+
+  // crown = wide-ish zigzag: 2–4 peaks with real prominence, ends at the bottom
+  function isCrownStroke(pts, box) {
+    if (box.w < box.h * 0.9 || box.w > box.h * 3.5) return false;
+    const bottom = box.y0 + box.h * 0.5;
+    if (pts[0][1] < bottom || pts[pts.length - 1][1] < bottom) return false;
+    const prom = box.h * 0.22;
+    let peaks = 0, valleys = 0;
+    let curMin = pts[0][1], curMax = pts[0][1], dir = 0;
+    for (const [, y] of pts) {
+      if (y < curMin) curMin = y;
+      if (y > curMax) curMax = y;
+      if (dir <= 0 && y - curMin > prom) {
+        if (curMin < box.y0 + box.h * 0.55) peaks++;
+        dir = 1; curMax = y;
+      } else if (dir >= 0 && curMax - y > prom) {
+        valleys++;
+        dir = -1; curMin = y;
+      }
+    }
+    return peaks >= 2 && peaks <= 4 && valleys >= peaks - 1;
+  }
+
+  // a box concentrates its turning in a few corner bursts; a circle spreads it evenly.
+  // count corners = runs of consecutive sharp turns (>=12°/pt) summing to >=50°
+  function cornerCount(pts) {
+    const n = pts.length;
+    // light smoothing so hand jitter doesn't read as corners
+    const sm = pts.map((_, i) => {
+      const a = pts[(i - 1 + n) % n], b = pts[i], c = pts[(i + 1) % n];
+      return [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3];
+    });
+    let clusters = 0, acc = 0;
+    for (let i = 0; i < n; i++) {
+      const a = sm[(i - 1 + n) % n], b = sm[i], c = sm[(i + 1) % n];
+      const a1 = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      const a2 = Math.atan2(c[1] - b[1], c[0] - b[0]);
+      let d = a2 - a1;
+      if (d > Math.PI) d -= Math.PI * 2;
+      if (d < -Math.PI) d += Math.PI * 2;
+      if (Math.abs(d) >= 0.21) acc += Math.abs(d);
+      else { if (acc >= 0.87) clusters++; acc = 0; }
+    }
+    if (acc >= 0.87) clusters++;
+    return clusters;
+  }
+
+  // how tightly the stroke hugs its own bounding box, per-axis normalized:
+  // ~0 for a box (even rounded/tilted), ~0.10 for a circle — a circle can't hug corners
+  function bboxHugOf(pts, box) {
+    let sum = 0;
+    for (const [x, y] of pts) {
+      const dx = Math.min(x - box.x0, box.x0 + box.w - x) / (box.w / 2);
+      const dy = Math.min(y - box.y0, box.y0 + box.h - y) / (box.h / 2);
+      sum += Math.min(dx, dy);
+    }
+    return sum / pts.length;
+  }
+
+  function isCircleStroke(pts, box) {
+    const cx = box.x0 + box.w / 2, cy = box.y0 + box.h / 2;
+    const rs = pts.map(([x, y]) => Math.hypot((x - cx) / (box.w / 2), (y - cy) / (box.h / 2)));
+    const mean = rs.reduce((a, b) => a + b, 0) / rs.length;
+    const std = Math.sqrt(rs.reduce((a, r) => a + (r - mean) ** 2, 0) / rs.length);
+    return mean > 0 && std / mean < 0.16;
+  }
+
+  // classify a whole drawing (px strokes): clean shape + which strokes enclose an area
+  function analyzeDrawing(strokes) {
+    const fillIdx = [];
+    for (let i = 0; i < strokes.length; i++) {
+      const b = bboxOf(strokes[i]);
+      if (b.diag >= 40 && strokes[i].length > 6 && strokeClosed(strokes[i], b.diag)) fillIdx.push(i);
+    }
+    const lens = strokes.map(strokeLen);
+    const total = lens.reduce((a, b) => a + b, 0);
+    const mainIdx = lens.indexOf(Math.max(...lens));
+    let kind = null;
+    if (total && lens[mainIdx] / total >= 0.7) {
+      const pts = resamplePts(strokes[mainIdx], 96);
+      const box = bboxOf(pts);
+      if (box.diag >= 40) {
+        if (isCrownStroke(pts, box)) kind = 'crown';
+        else if (strokeClosed(pts, box.diag)) {
+          const corners = cornerCount(pts);
+          const hug = bboxHugOf(pts, box);
+          // boxy-first: tight hug is a box even when soft corners evade the turn detector;
+          // 3-5 corner bursts buy slack for tilted boxes. circles must hug poorly.
+          if (hug < 0.06 || (corners >= 3 && corners <= 5 && hug < 0.15)) kind = 'rect';
+          else if (corners <= 2 && hug > 0.075 && isCircleStroke(pts, box)) kind = 'circle';
+        }
+      }
+    }
+    return { kind, fillIdx };
   }
 
   // ---------- draw mode ----------
 
   function enterDraw() {
+    if (overview) exitOverview();
     mode = 'draw';
     drawStrokes = [];
     curStroke = null;
@@ -741,10 +1352,26 @@
     drawHint.hidden = true;
   }
 
+  let pendingDetect = null;
+
+  const SHAPE_WORDS = {
+    crown: 'A CROWN. OF COURSE.',
+    rect: 'A BOX. I’LL SQUARE IT UP.',
+    circle: 'A CIRCLE. I’LL TRUE IT UP.',
+    closed: 'CLOSED SHAPE. I’LL FILL IT IN.',
+  };
+
   $('#addBtn').addEventListener('click', enterDraw);
   $('#drawCancel').addEventListener('click', exitDraw);
   $('#drawDone').addEventListener('click', () => {
     if (!drawStrokes.length) { exitDraw(); return; }
+    pendingDetect = analyzeDrawing(drawStrokes);
+    const tag = $('#nameShape');
+    const word = pendingDetect.kind
+      ? SHAPE_WORDS[pendingDetect.kind]
+      : (pendingDetect.fillIdx.length ? SHAPE_WORDS.closed : null);
+    tag.textContent = word || '';
+    tag.hidden = !word;
     nameOverlay.hidden = false;
     nameInput.value = '';
     setTimeout(() => nameInput.focus(), 30);
@@ -773,6 +1400,8 @@
     }
     let w = Math.max(x1 - x0, 10), h = Math.max(y1 - y0, 10);
     const scale = Math.min(1, 300 / Math.max(w, h));
+    const det = pendingDetect || analyzeDrawing(drawStrokes);
+    pendingDetect = null;
     const strokes = drawStrokes.map((s) => {
       const out = s.length > 60 ? s.filter((_, i) => i % 2 === 0) : s;
       return out.map(([x, y]) => [
@@ -786,7 +1415,6 @@
       id: crypto.randomUUID(),
       title,
       color: pen,
-      layer: 'today',
       x: f.x, y: f.y,
       seed: Math.floor(Math.random() * 2 ** 31),
       priority: 'knight',
@@ -795,7 +1423,10 @@
       done: false,
       doneAt: null,
       cluster: null,
-      strokes,
+      strokes: det.kind ? null : strokes,
+      shape: det.kind,
+      fillIdx: det.kind ? null : det.fillIdx,
+      fill: COMPLEMENT[pen], // fill = category, even when nothing is painted
       strokesW: Math.round(w * scale),
       strokesH: Math.round(h * scale),
       createdAt: Date.now(),
@@ -820,6 +1451,7 @@
   const lassoBtn = $('#lassoBtn');
 
   function toggleLasso() {
+    if (overview) exitOverview();
     if (mode === 'lasso') { exitLasso(); return; }
     if (mode === 'draw') exitDraw();
     mode = 'lasso';
@@ -852,13 +1484,18 @@
     if (!poly || poly.length < 8) { exitLasso(); return; }
     const selected = tasks.filter((t) => {
       if (!isVisible(t) || t.done) return false;
-      return pointInPoly(t.x * stage.clientWidth, t.y * stage.clientHeight, poly);
+      const [vx, vy] = visPosPx(t);
+      return pointInPoly(vx, vy - scrollY, poly); // lasso ink is in screen coords
     });
     exitLasso();
     if (selected.length < 2) {
       showToast('Circle at least two marks to build a crew.');
       return;
     }
+    // anchor the new stack where the lassoed marks actually are (before reassigning)
+    const vps = selected.map(visPosPx);
+    const ax = clamp(vps.reduce((a, p) => a + p[0], 0) / vps.length / stage.clientWidth, 0.1, 0.9);
+    const ay = clamp(vps.reduce((a, p) => a + p[1], 0) / vps.length / stage.clientHeight, 0.09, yMax());
     const cid = crypto.randomUUID();
     const oldCids = new Set(selected.map((t) => t.cluster).filter(Boolean));
     for (const t of selected) t.cluster = cid;
@@ -866,16 +1503,17 @@
     for (const old of oldCids) {
       const rest = tasks.filter((t) => t.cluster === old);
       if (rest.length < 2) rest.forEach((t) => { t.cluster = null; });
+      if (!tasks.some((t) => t.cluster === old)) delete crews[old];
     }
+    crews[cid] = { stacked: true, x: ax, y: ay };
     saveTasks();
-    buildRings();
-    showToast(`A crew of ${selected.length}. They have more power.`);
+    saveCrews();
+    repositionCrew(selected);
+    showToast(`A crew of ${selected.length}. Stacked. Tap to spread.`);
   }
 
   // ---------- inspect ----------
 
-  const EYE_OPEN = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg>';
-  const EYE_OFF = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><path d="M4 20 20 4"/></svg>';
   const CROWN_SVG = '<svg viewBox="0 0 24 18"><path d="M3 14 L4 5 L8.5 9.5 L12 2.5 L15.5 9.5 L20 5 L21 14 Z"/><rect x="3.4" y="14.5" width="17.2" height="2.4"/></svg>';
 
   function escapeHtml(s) {
@@ -898,15 +1536,15 @@
         </div>
       </div>
       <div class="insp-row">
-        <span class="insp-label">LAYER</span>
-        <div class="chip-row">
-          ${LAYERS.map((l) => `<button class="chip ${t.layer === l.id ? 'on' : ''}" data-layer="${l.id}">${l.name}</button>`).join('')}
+        <span class="insp-label">OUTLINE</span>
+        <div class="color-row">
+          ${Object.keys(COLORS).map((c) => `<button class="color-pick ${t.color === c ? 'on' : ''}" data-color="${c}" style="background:${COLORS[c]}" aria-label="${c}"></button>`).join('')}
         </div>
       </div>
       <div class="insp-row">
-        <span class="insp-label">COLOR</span>
+        <span class="insp-label">FILL</span>
         <div class="color-row">
-          ${Object.keys(COLORS).map((c) => `<button class="color-pick ${t.color === c ? 'on' : ''}" data-color="${c}" style="background:${COLORS[c]}" aria-label="${c}"></button>`).join('')}
+          ${Object.keys(FILL_COLORS).map((c) => `<button class="color-pick ${catOf(t) === c ? 'on' : ''}" data-fill="${c}" style="background:${FILL_COLORS[c]}" aria-label="fill ${c}"></button>`).join('')}
         </div>
       </div>
       <div class="insp-row">
@@ -952,18 +1590,19 @@
         rerender();
         buildRings();
       }));
-    inspect.querySelectorAll('[data-layer]').forEach((b) =>
-      b.addEventListener('click', () => {
-        t.layer = b.dataset.layer;
-        inspect.querySelectorAll('[data-layer]').forEach((x) => x.classList.toggle('on', x === b));
-        saveTasks();
-        if (!isVisible(t)) { closePanels(); renderMarks(); }
-      }));
     inspect.querySelectorAll('[data-color]').forEach((b) =>
       b.addEventListener('click', () => {
         t.color = b.dataset.color;
         inspect.querySelectorAll('[data-color]').forEach((x) => x.classList.toggle('on', x === b));
         rerender();
+      }));
+    inspect.querySelectorAll('[data-fill]').forEach((b) =>
+      b.addEventListener('click', () => {
+        t.fill = b.dataset.fill;
+        inspect.querySelectorAll('[data-fill]').forEach((x) => x.classList.toggle('on', x === b));
+        rerender();
+        // fill = category: recoloring can move the mark into a hidden color
+        if (!isVisible(t)) { closePanels(); renderMarks(); }
       }));
 
     const dateInput = $('#inspDate');
@@ -993,10 +1632,14 @@
       const cid = t.cluster;
       t.cluster = null;
       const rest = tasks.filter((x) => x.cluster === cid);
-      if (rest.length < 2) rest.forEach((x) => { x.cluster = null; });
+      if (rest.length < 2) {
+        rest.forEach((x) => { x.cluster = null; });
+        delete crews[cid];
+      }
       saveTasks();
-      buildRings();
+      saveCrews();
       closePanels();
+      renderMarks();
     });
     $('#inspDelete').addEventListener('click', () => {
       closePanels();
@@ -1009,37 +1652,21 @@
   // ---------- layers sheet ----------
 
   function buildLayersSheet() {
-    const ul = $('#layerList');
-    ul.textContent = '';
-    const rows = [...LAYERS.map((l) => ({ ...l, done: false })), { id: 'done', name: 'Done', color: '#f5f1e6', done: true }];
-    for (const L of rows) {
-      const li = document.createElement('li');
-      li.className = 'layer-row';
-      const sw = document.createElement('span');
-      sw.className = 'layer-swatch';
-      sw.innerHTML = `<i style="background:${L.color};${L.id === 'done' ? 'outline:1px solid #555' : ''}"></i>`;
-      const name = document.createElement('span');
-      name.className = 'layer-name';
-      name.textContent = L.name;
-      const count = document.createElement('span');
-      count.className = 'layer-count';
-      const n = L.id === 'done'
-        ? tasks.filter((t) => t.done).length
-        : tasks.filter((t) => t.layer === L.id && !t.done).length;
-      count.textContent = n || '';
-      const eye = document.createElement('button');
-      eye.className = 'eye-btn' + (vis[L.id] ? '' : ' off');
-      eye.setAttribute('aria-label', `${vis[L.id] ? 'Hide' : 'Show'} ${L.name}`);
-      eye.innerHTML = vis[L.id] ? EYE_OPEN : EYE_OFF;
-      eye.addEventListener('click', () => {
-        vis[L.id] = !vis[L.id];
+    const row = $('#layerList');
+    row.textContent = '';
+    for (const c of Object.keys(FILL_COLORS)) {
+      const b = document.createElement('button');
+      b.className = 'focus-swatch' + (vis[c] ? ' on' : '');
+      b.style.background = FILL_COLORS[c];
+      b.setAttribute('aria-label', `${vis[c] ? 'Hide' : 'Show'} ${FILL_NAMES[c]}`);
+      b.addEventListener('click', () => {
+        vis[c] = !vis[c];
         saveVis();
-        eye.classList.toggle('off', !vis[L.id]);
-        eye.innerHTML = vis[L.id] ? EYE_OPEN : EYE_OFF;
+        b.classList.toggle('on', vis[c]);
+        b.setAttribute('aria-label', `${vis[c] ? 'Hide' : 'Show'} ${FILL_NAMES[c]}`);
         renderMarks();
       });
-      li.append(sw, name, count, eye);
-      ul.appendChild(li);
+      row.appendChild(b);
     }
   }
 
@@ -1088,15 +1715,15 @@
   // ---------- export / archive ----------
 
   function exportImage() {
-    const W = stage.clientWidth, H = stage.clientHeight;
-    const S = 2;
+    const W = stage.clientWidth, H = worldH(); // the whole canvas, not just the view
+    const S = H > 8000 ? 1 : 2; // stay under canvas size limits on tall worlds
     const cv = document.createElement('canvas');
     cv.width = W * S; cv.height = H * S;
     const ctx = cv.getContext('2d');
     ctx.scale(S, S);
-    // paper (cover)
-    const pr = Math.max(W / paperCv.width, H / paperCv.height);
-    ctx.drawImage(paperCv, (W - paperCv.width * pr) / 2, (H - paperCv.height * pr) / 2, paperCv.width * pr, paperCv.height * pr);
+    // paper (tiled down the canvas, like on the stage)
+    const tileH = paperCv.height * (W / paperCv.width);
+    for (let y = 0; y < H; y += tileH) ctx.drawImage(paperCv, 0, y, W, tileH);
     // rings
     for (const { el, box } of ringEls.values()) {
       ctx.drawImage(el.querySelector('canvas'), box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0);
@@ -1107,9 +1734,10 @@
       if (!el) continue;
       const mcv = el.querySelector('canvas');
       const w = el.offsetWidth, h = el.offsetHeight;
+      const [vx, vy] = visPosPx(t);
       ctx.save();
       if (t.done) ctx.globalAlpha = 0.55;
-      ctx.drawImage(mcv, t.x * W - w / 2, t.y * H - h / 2, w, h);
+      ctx.drawImage(mcv, vx - w / 2, vy - h / 2, w, h);
       ctx.restore();
     }
     // header
@@ -1139,7 +1767,11 @@
       localStorage.setItem(LS.archive, JSON.stringify(arch));
     } catch { /* archive is best-effort */ }
     tasks = tasks.filter((t) => !t.done);
+    pruneCrews();
+    fitWorld();
+    setScroll(scrollY);
     saveTasks();
+    saveCrews();
     renderMarks();
     closePanels();
     showToast(`${ghosts.length} ${ghosts.length === 1 ? 'ghost' : 'ghosts'} archived. The day is part of the story.`);
@@ -1151,6 +1783,7 @@
   // ---------- panels ----------
 
   function openPanel(panel) {
+    if (overview) exitOverview();
     closePanels();
     if (mode !== 'normal') { if (mode === 'draw') exitDraw(); else exitLasso(); }
     if (panel === layersSheet) buildLayersSheet();
@@ -1217,11 +1850,40 @@
     return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
   }
 
+  function pruneCrews() {
+    const counts = {};
+    for (const t of tasks) if (t.cluster) counts[t.cluster] = (counts[t.cluster] || 0) + 1;
+    for (const t of tasks) if (t.cluster && counts[t.cluster] < 2) t.cluster = null;
+    for (const cid of Object.keys(crews)) if (!counts[cid] || counts[cid] < 2) delete crews[cid];
+  }
+
   function load() {
     try {
       tasks = JSON.parse(localStorage.getItem(LS.tasks) || '[]');
     } catch { tasks = []; }
+    try {
+      crews = JSON.parse(localStorage.getItem(LS.crews) || '{}');
+    } catch { crews = {}; }
+    // migrate: fill is the category now — every task needs a valid one
+    for (const t of tasks) {
+      if (!FILL_COLORS[t.fill]) t.fill = COMPLEMENT[t.color] || 'white';
+      delete t.layer;
+    }
+    // migrate y to viewport-height units: wv '1' stored fractions of the old
+    // fixed 3-screen world (×3); anything older stored viewport fractions (×1)
+    const wv = localStorage.getItem('basq.wv');
+    if (wv !== '2') {
+      const f = wv === '1' ? 3 : 1;
+      for (const t of tasks) t.y = (t.y || 0) * f;
+      for (const c of Object.values(crews)) {
+        if (c && typeof c.y === 'number') c.y *= f;
+      }
+      localStorage.setItem('basq.wv', '2');
+    }
+    pruneCrews();
+    fitWorld();
     saveTasks();
+    saveCrews();
   }
 
   // ---------- onboarding ----------
@@ -1241,7 +1903,16 @@
   sizeScratch();
   updatePens();
   $('#dayDate').textContent = dayDateText();
-  window.addEventListener('resize', () => { sizeScratch(); buildRings(); });
+  window.addEventListener('resize', () => {
+    sizeScratch();
+    // mark tops are in px of the viewport height — reproject them
+    for (const t of tasks.filter(isVisible)) {
+      const el = markEls.get(t.id);
+      if (el) positionMark(el, t);
+    }
+    setScroll(scrollY);
+    buildRings();
+  });
 
   document.fonts.load('20px "Permanent Marker"').then(() => document.fonts.ready).then(() => {
     renderMarks();

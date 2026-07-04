@@ -39,14 +39,43 @@ html, body {
 .stage {
   position: fixed;
   inset: 0;
+  overflow: hidden;
   touch-action: none;
   background-color: var(--paper);
-  background-size: cover;
-  background-position: center;
   cursor: crosshair;
 }
 
+.world {
+  position: absolute;
+  left: 0; top: 0;
+  width: 100%;
+  height: 300%; /* grows on demand — app.js sets the real height inline */
+  background-size: 100% auto;
+  background-repeat: repeat-y;
+  background-position: top;
+  transform-origin: 0 0;
+  will-change: translate, scale;
+}
+.world.anim { transition: translate 0.38s cubic-bezier(0.3, 0.9, 0.3, 1), scale 0.38s cubic-bezier(0.3, 0.9, 0.3, 1); }
+.stage { transition: background-color 0.38s ease; }
+.stage.overview { background-color: #cfc5ac; cursor: zoom-in; }
+.stage.overview .mark { cursor: zoom-in; }
+.stage.overview .world {
+  box-shadow: 0 10px 40px rgba(20, 16, 10, 0.4);
+  outline: 1px solid rgba(20, 16, 10, 0.2);
+}
 .rings, .marks { position: absolute; inset: 0; }
+.scrollbar {
+  position: absolute;
+  right: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: rgba(20, 16, 10, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 5;
+}
 .rings { pointer-events: none; }
 .ring { position: absolute; }
 .ring canvas { display: block; }
@@ -61,6 +90,7 @@ html, body {
 .mark canvas { display: block; pointer-events: none; }
 .mark.done { opacity: 0.55; filter: grayscale(0.65); }
 .mark.dragging { transition: none; z-index: 6; }
+.mark.anim { transition: left 0.32s ease, top 0.32s ease, translate 0.32s ease, opacity 0.3s ease, filter 0.3s ease; }
 .mark.new { animation: stamp-in 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 @keyframes stamp-in {
   from { scale: 1.5; opacity: 0; rotate: 3deg; }
@@ -263,6 +293,14 @@ html, body {
   caret-color: var(--gold);
 }
 .name-block textarea::placeholder { color: rgba(242, 238, 226, 0.35); }
+.name-shape {
+  font-family: var(--font-marker);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  margin-bottom: 8px;
+  rotate: -0.6deg;
+}
 .name-actions {
   display: flex;
   justify-content: space-between;
@@ -327,13 +365,6 @@ html, body {
   font-size: 15px;
   cursor: pointer;
   touch-action: manipulation;
-}
-.panel-sub {
-  font-family: var(--font-marker);
-  font-size: 15px;
-  letter-spacing: 0.08em;
-  color: var(--chrome-dim);
-  margin: 18px 4px 8px;
 }
 .panel-note {
   margin-top: 14px;
@@ -415,12 +446,12 @@ html, body {
 .color-pick {
   width: 24px; height: 24px;
   border-radius: 50%;
-  border: 2px solid transparent;
+  border: 2px solid rgba(242, 238, 226, 0.35);
   cursor: pointer;
   padding: 0;
   touch-action: manipulation;
 }
-.color-pick.on { border-color: var(--chrome-ink); }
+.color-pick.on { box-shadow: 0 0 0 2px var(--chrome), 0 0 0 4px var(--chrome-ink); }
 .insp-due {
   flex: 1;
   border: none;
@@ -472,42 +503,27 @@ html, body {
 .insp-actions .danger { color: #e0684f; }
 .insp-date { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
-/* layers */
+/* focus (color filter) */
 
-.layer-list { list-style: none; }
-.layer-row {
+.focus-row {
   display: flex;
-  align-items: center;
-  gap: 13px;
-  padding: 10px 6px;
+  justify-content: center;
+  gap: 22px;
+  padding: 14px 6px 18px;
 }
-.layer-swatch {
-  width: 30px; height: 24px;
-  flex: none;
-  display: grid;
-  place-items: center;
-}
-.layer-swatch i { width: 100%; height: 100%; }
-.layer-name {
-  flex: 1;
-  font-family: var(--font-marker);
-  font-size: 17px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.layer-count { font-size: 13px; color: var(--chrome-dim); }
-.eye-btn {
-  border: none;
-  background: transparent;
-  color: var(--chrome-ink);
-  width: 40px; height: 36px;
-  display: grid;
-  place-items: center;
+.focus-swatch {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(242, 238, 226, 0.35);
+  padding: 0;
   cursor: pointer;
   touch-action: manipulation;
+  opacity: 0.4;
 }
-.eye-btn svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; }
-.eye-btn.off { color: var(--chrome-dim); opacity: 0.6; }
+.focus-swatch.on {
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--chrome), 0 0 0 6px var(--chrome-ink);
+}
 
 /* the day */
 
@@ -525,23 +541,6 @@ html, body {
 }
 .notices li svg { width: 20px; height: 15px; fill: var(--gold); stroke: var(--ink); stroke-width: 1; flex: none; }
 .notices .quiet { background: rgba(255, 255, 255, 0.06); color: var(--chrome-dim); font-weight: 400; }
-
-.palette { list-style: none; display: grid; gap: 7px; }
-.palette li {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  font-family: var(--font-marker);
-  font-size: 14px;
-  letter-spacing: 0.05em;
-}
-.palette li span {
-  font-family: var(--font-body);
-  font-size: 12.5px;
-  color: var(--chrome-dim);
-  letter-spacing: 0;
-}
-.palette li i { width: 16px; height: 16px; border-radius: 3px; flex: none; }
 
 .day-actions { display: flex; gap: 10px; margin-top: 20px; }
 .day-actions button {

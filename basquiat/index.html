@@ -8,19 +8,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=16" />
 </head>
 <body>
 
   <!-- The canvas. Tasks live as marks. -->
   <div class="stage" id="stage">
-    <div class="rings" id="rings"></div>
-    <div class="marks" id="marks"></div>
+    <div class="world" id="world">
+      <div class="rings" id="rings"></div>
+      <div class="marks" id="marks"></div>
+    </div>
     <canvas class="scratch" id="scratch"></canvas>
     <div class="hint" id="hint" hidden>
       <p>NOT JUST TASKS.<br/>MARKS.</p>
       <p class="hint-sub">tap + and draw something</p>
     </div>
+    <div class="scrollbar" id="scrollbar" hidden></div>
   </div>
 
   <header class="topbar">
@@ -44,7 +47,7 @@
   <div class="draw-hint lasso-hint" id="lassoHint" hidden>BUILD A CREW.<br/><span>circle the marks that move together</span></div>
 
   <nav class="bottombar" id="bottombar">
-    <button class="bar-btn" id="layersBtn" aria-label="Layers">
+    <button class="bar-btn" id="layersBtn" aria-label="Focus">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
     <button class="bar-btn" id="lassoBtn" aria-label="Lasso a crew">
@@ -61,6 +64,7 @@
   <!-- name-it overlay -->
   <div class="name-overlay" id="nameOverlay" hidden>
     <div class="name-block">
+      <div class="name-shape" id="nameShape" hidden></div>
       <textarea id="nameInput" rows="2" placeholder="GIVE IT VOICE" maxlength="60" autocomplete="off"></textarea>
       <div class="name-actions">
         <button id="nameCancel">SCRAP IT</button>
@@ -76,11 +80,10 @@
   <!-- layers sheet -->
   <section class="panel" id="layersSheet" hidden>
     <div class="panel-head">
-      <h2>Layers</h2>
+      <h2>Focus</h2>
       <button class="panel-x" data-close aria-label="Close">✕</button>
     </div>
-    <ul class="layer-list" id="layerList"></ul>
-    <p class="panel-note">Show or hide layers. Each layer is a different mood, world, or context.</p>
+    <div class="focus-row" id="layerList"></div>
   </section>
 
   <!-- the day sheet: notices, palette, archive -->
@@ -90,14 +93,6 @@
       <button class="panel-x" data-close aria-label="Close">✕</button>
     </div>
     <ul class="notices" id="notices"></ul>
-    <h3 class="panel-sub">The Colors</h3>
-    <ul class="palette">
-      <li><i style="background:#141414"></i>BLACK <span>major / focus</span></li>
-      <li><i style="background:#c92f1e"></i>RED <span>urgent / fire</span></li>
-      <li><i style="background:#2b4ea3"></i>BLUE <span>work / projects</span></li>
-      <li><i style="background:#e3b71e"></i>YELLOW <span>ideas / maybe</span></li>
-      <li><i style="background:#f5f1e6;outline:1px solid #555"></i>WHITE <span>done / ghosts</span></li>
-    </ul>
     <div class="day-actions">
       <button id="saveImage">SAVE IMAGE</button>
       <button id="archiveDay">ARCHIVE DAY</button>
@@ -114,7 +109,7 @@
         <li><span class="ob-k">TAP</span>open the mark. crowns set priority — king to ghost.</li>
         <li><span class="ob-k">SLASH</span>swipe fast across it. crossed out. history.</li>
         <li><span class="ob-k">DRAG</span>slow. move it. crews move together.</li>
-        <li><span class="ob-k">LASSO</span>circle marks to build a crew.</li>
+        <li><span class="ob-k">LASSO</span>circle marks to build a crew — they stack. tap to spread.</li>
       </ul>
       <p class="ob-sub">not organized. not perfect. <em>but real.</em></p>
       <button class="ob-go" id="onboardGo">MAKE YOUR MARK</button>
@@ -126,6 +121,6 @@
     <button id="toastAction" hidden></button>
   </div>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>
