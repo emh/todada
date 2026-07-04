@@ -45,14 +45,6 @@
     dots: 'exploratory',
   };
 
-  const LAYERS = [
-    { id: 'today', name: 'Today', color: COLORS.purple },
-    { id: 'work', name: 'Work', color: COLORS.blue },
-    { id: 'personal', name: 'Personal', color: COLORS.yellow },
-    { id: 'health', name: 'Health', color: COLORS.green },
-    { id: 'someday', name: 'Someday', color: COLORS.gray },
-  ];
-
   const TONES = [
     { id: 'calm', name: 'Calm & Clear', wash: ['#b9cbd8', '#d9d0b8', '#c9d5c5'], grid: false },
     { id: 'structured', name: 'Structured', wash: ['#a9b4c8', '#c8c2b0', '#b8b8c8'], grid: true },
@@ -68,8 +60,19 @@
   // ---------- state ----------
 
   let tasks = [];
-  let vis = { today: true, work: true, personal: true, health: true, someday: true, completed: true };
-  try { vis = { ...vis, ...JSON.parse(localStorage.getItem(LS.vis) || '{}') }; } catch { /* defaults */ }
+  // what's visible: any mix of colors and shapes, plus resolved elements
+  let vis = {
+    colors: { purple: true, blue: true, yellow: true, red: true, green: true, gray: true },
+    shapes: { point: true, circle: true, square: true, triangle: true, line: true, curve: true, dots: true },
+    completed: true,
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS.vis) || '{}');
+    for (const g of ['colors', 'shapes']) {
+      if (saved[g]) for (const k of Object.keys(vis[g])) if (typeof saved[g][k] === 'boolean') vis[g][k] = saved[g][k];
+    }
+    if (typeof saved.completed === 'boolean') vis.completed = saved.completed;
+  } catch { /* defaults */ }
   let toneId = localStorage.getItem(LS.tone) || 'calm';
   let lastColor = localStorage.getItem(LS.color) || 'blue';
   let mode = 'normal'; // 'normal' | 'lasso'
@@ -84,8 +87,10 @@
 
   const $ = (s) => document.querySelector(s);
   const stage = $('#stage');
+  const world = $('#world');
   const marksEl = $('#marks');
   const ringsEl = $('#rings');
+  const scrollbarEl = $('#scrollbar');
   const scratch = $('#scratch');
   const sctx = scratch.getContext('2d');
   const hintEl = $('#hint');
@@ -93,7 +98,7 @@
   const nameSheet = $('#nameSheet');
   const nameInput = $('#nameInput');
   const inspect = $('#inspect');
-  const layersSheet = $('#layersSheet');
+  const filterSheet = $('#filterSheet');
   const viewSheet = $('#viewSheet');
   const balanceVeil = $('#balanceVeil');
   const toastEl = $('#toast');
@@ -135,6 +140,73 @@
   }
   const saveTasks = () => localStorage.setItem(LS.tasks, JSON.stringify(tasks));
   const saveVis = () => localStorage.setItem(LS.vis, JSON.stringify(vis));
+
+  // ---------- the scrolling world ----------
+  // the canvas grows on demand: it starts MIN_SCREENS viewports tall and adds
+  // a screen whenever you keep pulling past the bottom edge. x is a fraction
+  // of the viewport width; y is measured in viewport heights (so the world
+  // can grow without moving existing elements).
+
+  const MIN_SCREENS = 3;
+  let screens = MIN_SCREENS;
+  const worldH = () => stage.clientHeight * screens;
+  const yMax = () => screens - 0.12;
+  let scrollY = 0;
+  const viewTop = () => scrollY / stage.clientHeight; // top of the viewport, in viewport heights
+  const inView = (t) => t.y >= viewTop() - 0.04 && t.y <= viewTop() + 1.04;
+
+  function syncWorldSize() {
+    world.style.height = screens * 100 + '%';
+  }
+
+  // bottom-most element, in viewport heights
+  function contentBottom() {
+    let b = 0;
+    for (const t of tasks) b = Math.max(b, t.y || 0);
+    return b;
+  }
+
+  // trim empty trailing screens (on load)
+  function fitWorld() {
+    screens = Math.max(MIN_SCREENS, Math.ceil(contentBottom() + 0.55));
+    syncWorldSize();
+  }
+
+  let growPull = 0;
+  function growWorld() {
+    screens += 1;
+    syncWorldSize();
+    applyWorldTransform();
+    updateScrollbar();
+    showToast('The canvas extends. Compose onward.');
+  }
+
+  let sbTimer = null;
+  function updateScrollbar() {
+    const sh = stage.clientHeight, wh = worldH();
+    const th = Math.max(40, (sh / wh) * (sh - 20));
+    scrollbarEl.style.height = th + 'px';
+    scrollbarEl.style.top = 10 + (scrollY / (wh - sh)) * (sh - 20 - th) + 'px';
+    scrollbarEl.hidden = false;
+    scrollbarEl.style.opacity = '1';
+    clearTimeout(sbTimer);
+    sbTimer = setTimeout(() => { scrollbarEl.style.opacity = '0'; }, 800);
+  }
+
+  function applyWorldTransform() {
+    world.style.translate = `0 ${-scrollY}px`;
+  }
+
+  function setScroll(v) {
+    const max = worldH() - stage.clientHeight;
+    if (v > max + 0.5) {
+      growPull += v - max;
+      if (growPull > 150) { growPull = 0; growWorld(); }
+    } else if (v < max - 4) { growPull = 0; }
+    scrollY = clamp(v, 0, worldH() - stage.clientHeight);
+    applyWorldTransform();
+    updateScrollbar();
+  }
 
   // ---------- background ----------
 
@@ -201,7 +273,7 @@
       ctx.lineTo(hx + (rnd() - 0.5) * 90 + Math.cos(a) * 35, hy + (rnd() - 0.5) * 60 + Math.sin(a) * 35);
       ctx.stroke();
     }
-    stage.style.backgroundImage = `url(${cv.toDataURL('image/jpeg', 0.82)})`;
+    world.style.backgroundImage = `url(${cv.toDataURL('image/jpeg', 0.82)})`;
   }
 
   // ---------- shape rendering (SVG) ----------
@@ -218,8 +290,10 @@
     let body = '';
 
     if (t.shape === 'point') {
-      body = `<circle cx="${c}" cy="${c}" r="${size / 2}" fill="${col}"/>
-        <circle cx="${c + size * 0.15}" cy="${c - size * 0.15}" r="${size / 2 + 3}" fill="none" stroke="${dark}" stroke-width="1" opacity="0.55"/>`;
+      // in the picker, draw the point small so it reads as a point, not a circle
+      const r0 = forPicker ? size * 0.28 : size / 2;
+      body = `<circle cx="${c}" cy="${c}" r="${r0}" fill="${col}"/>
+        <circle cx="${c + size * 0.15}" cy="${c - size * 0.15}" r="${r0 + 3}" fill="none" stroke="${dark}" stroke-width="1" opacity="0.55"/>`;
     } else if (t.shape === 'circle') {
       body = `<circle cx="${c}" cy="${c}" r="${size / 2}" fill="${col}" fill-opacity="0.92"/>
         <circle cx="${c + 3}" cy="${c - 3}" r="${size / 2 + 4}" fill="none" stroke="${dark}" stroke-width="1.3" opacity="0.5"/>
@@ -273,12 +347,13 @@
 
   // ---------- marks on stage ----------
 
-  const isVisible = (t) => vis[t.layer] && (!t.done || vis.completed);
+  const isVisible = (t) =>
+    vis.colors[t.color] !== false && vis.shapes[t.shape] !== false && (!t.done || vis.completed);
   const pullsFocus = (t) => !t.done && (t.priority === 'high' || (t.due && t.due <= localISO(1)));
 
   function positionMark(el, t) {
     el.style.left = t.x * 100 + '%';
-    el.style.top = t.y * 100 + '%';
+    el.style.top = t.y * stage.clientHeight + 'px';
   }
 
   function markClasses(el, t) {
@@ -322,7 +397,7 @@
     const r = stage.getBoundingClientRect();
     return {
       x: clamp((clientX - r.left) / r.width, 0.07, 0.93),
-      y: clamp((clientY - r.top) / r.height, 0.12, 0.86),
+      y: clamp((clientY - r.top + scrollY) / r.height, 0.12, yMax()),
     };
   }
 
@@ -412,7 +487,66 @@
 
   stage.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  // ---------- two-finger scroll ----------
+
+  const touchPts = new Map();
+  let panning = false;
+  let panLastY = 0;
+
+  // a second finger means scroll: abandon whatever the first finger started
+  function cancelForPan() {
+    if (lassoPts) { lassoPts = null; clearScratch(); }
+    if (!gest) return;
+    if (gest.task) {
+      if (gest.sub === 'drag' && gest.orig) {
+        for (const t of gest.crew || [gest.task]) {
+          const o = gest.orig.get(t.id);
+          if (o) { t.x = o[0]; t.y = o[1]; }
+          const el = markEls.get(t.id);
+          if (el) { el.classList.remove('dragging'); positionMark(el, t); }
+        }
+        buildRings();
+      }
+    } else {
+      clearScratch(); // abandon the ink trace
+    }
+    gest = null;
+  }
+
+  function touchDown(e) {
+    if (e.pointerType !== 'touch') return false;
+    touchPts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (touchPts.size === 2) {
+      cancelForPan();
+      panning = true;
+      panLastY = [...touchPts.values()].reduce((a, p) => a + p[1], 0) / touchPts.size;
+    }
+    return panning;
+  }
+
+  function touchMove(e) {
+    if (e.pointerType !== 'touch' || !touchPts.has(e.pointerId)) return false;
+    touchPts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (!panning) return false;
+    const avg = [...touchPts.values()].reduce((a, p) => a + p[1], 0) / touchPts.size;
+    setScroll(scrollY - (avg - panLastY));
+    panLastY = avg;
+    return true;
+  }
+
+  function touchEnd(e) {
+    if (e.pointerType !== 'touch') return;
+    touchPts.delete(e.pointerId);
+    if (panning && touchPts.size < 2) { panning = false; swallowNextClick(); }
+  }
+
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    setScroll(scrollY + e.deltaY);
+  }, { passive: false });
+
   stage.addEventListener('pointerdown', (e) => {
+    if (touchDown(e)) return;
     if (!e.isPrimary) return;
     const r = stage.getBoundingClientRect();
     const pt = [e.clientX - r.left, e.clientY - r.top];
@@ -425,6 +559,7 @@
 
     const markEl = e.target.closest('.mark');
     const task = markEl ? tasks.find((t) => t.id === markEl.dataset.id) : null;
+    const crew = task && task.group ? groupMembers(task.group) : null;
     gest = {
       id: e.pointerId,
       startX: e.clientX, startY: e.clientY,
@@ -434,13 +569,15 @@
       sub: null, // 'drag' | 'flick' (marks) — empty canvas collects trace
       path: 0,
       trace: [pt],
-      crew: task && task.group ? groupMembers(task.group) : null,
+      crew,
       ringInfo: task && task.group ? ringEls.get(task.group) : null,
+      orig: task ? new Map((crew || [task]).map((t) => [t.id, [t.x, t.y]])) : null,
     };
     try { stage.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
   });
 
   stage.addEventListener('pointermove', (e) => {
+    if (touchMove(e)) return;
     const r = stage.getBoundingClientRect();
     const pt = [e.clientX - r.left, e.clientY - r.top];
 
@@ -465,7 +602,7 @@
         const targets = gest.crew || [gest.task];
         for (const t of targets) {
           t.x = clamp(t.x + fdx, 0.05, 0.95);
-          t.y = clamp(t.y + fdy, 0.08, 0.9);
+          t.y = clamp(t.y + fdy, 0.08, yMax());
           const el = markEls.get(t.id);
           if (el) { el.classList.add('dragging'); positionMark(el, t); }
         }
@@ -527,35 +664,121 @@
     }
   }
 
-  stage.addEventListener('pointerup', (e) => endGesture(e, false));
-  stage.addEventListener('pointercancel', (e) => endGesture(e, true));
+  stage.addEventListener('pointerup', (e) => { touchEnd(e); endGesture(e, false); });
+  stage.addEventListener('pointercancel', (e) => { touchEnd(e); endGesture(e, true); });
 
-  function inferShape(trace) {
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, L = 0;
-    for (let i = 0; i < trace.length; i++) {
-      const [x, y] = trace[i];
+  // --- shape detection (same toolkit as basquiat's drawing recognizer) ---
+
+  function strokeLen(s) {
+    let L = 0;
+    for (let i = 1; i < s.length; i++) L += Math.hypot(s[i][0] - s[i - 1][0], s[i][1] - s[i - 1][1]);
+    return L;
+  }
+
+  function bboxOf(pts) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of pts) {
       x0 = Math.min(x0, x); y0 = Math.min(y0, y);
       x1 = Math.max(x1, x); y1 = Math.max(y1, y);
-      if (i) L += Math.hypot(x - trace[i - 1][0], y - trace[i - 1][1]);
     }
-    const w = Math.max(x1 - x0, 8), h = Math.max(y1 - y0, 8);
+    return { x0, y0, w: x1 - x0, h: y1 - y0, diag: Math.hypot(x1 - x0, y1 - y0) };
+  }
+
+  // uniform arc-length resampling so detection ignores drawing speed
+  function resamplePts(s, n) {
+    const L = strokeLen(s);
+    if (!L || s.length < 2) return s.slice();
+    const step = L / (n - 1);
+    const out = [s[0]];
+    let acc = 0, prev = s[0];
+    for (let i = 1; i < s.length; i++) {
+      let cur = s[i];
+      let d = Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+      while (acc + d >= step && out.length < n) {
+        const u = (step - acc) / d;
+        const np = [prev[0] + (cur[0] - prev[0]) * u, prev[1] + (cur[1] - prev[1]) * u];
+        out.push(np);
+        prev = np;
+        d = Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+        acc = 0;
+      }
+      acc += d;
+      prev = cur;
+    }
+    while (out.length < n) out.push(s[s.length - 1]);
+    return out;
+  }
+
+  const strokeClosed = (s, diag) =>
+    Math.hypot(s[0][0] - s[s.length - 1][0], s[0][1] - s[s.length - 1][1]) < Math.max(22, diag * 0.22);
+
+  // polygons concentrate their turning in a few corner bursts; a circle spreads
+  // it evenly. count corners = runs of consecutive sharp turns summing to >=50°
+  function cornerCount(pts) {
+    const n = pts.length;
+    // light smoothing so hand jitter doesn't read as corners
+    const sm = pts.map((_, i) => {
+      const a = pts[(i - 1 + n) % n], b = pts[i], c = pts[(i + 1) % n];
+      return [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3];
+    });
+    let clusters = 0, acc = 0;
+    for (let i = 0; i < n; i++) {
+      const a = sm[(i - 1 + n) % n], b = sm[i], c = sm[(i + 1) % n];
+      const a1 = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      const a2 = Math.atan2(c[1] - b[1], c[0] - b[0]);
+      let d = a2 - a1;
+      if (d > Math.PI) d -= Math.PI * 2;
+      if (d < -Math.PI) d += Math.PI * 2;
+      if (Math.abs(d) >= 0.21) acc += Math.abs(d);
+      else { if (acc >= 0.87) clusters++; acc = 0; }
+    }
+    if (acc >= 0.87) clusters++;
+    return clusters;
+  }
+
+  // how tightly the stroke hugs its own bounding box, per-axis normalized:
+  // ~0 for a square (even rounded), ~0.10 for a circle — a circle can't hug corners
+  function bboxHugOf(pts, box) {
+    let sum = 0;
+    for (const [x, y] of pts) {
+      const dx = Math.min(x - box.x0, box.x0 + box.w - x) / (box.w / 2);
+      const dy = Math.min(y - box.y0, box.y0 + box.h - y) / (box.h / 2);
+      sum += Math.min(dx, dy);
+    }
+    return sum / pts.length;
+  }
+
+  // classify the drawn trace: closed strokes become square / triangle / circle
+  // by how they turn and hug their box; open strokes become line / curve
+  function inferShape(trace) {
+    const pts = resamplePts(trace, 96);
+    const b = bboxOf(pts);
+    const w = Math.max(b.w, 8), h = Math.max(b.h, 8);
+    const L = strokeLen(trace);
     const D = Math.hypot(trace[trace.length - 1][0] - trace[0][0], trace[trace.length - 1][1] - trace[0][1]);
-    const straightness = D / L;
     let shape = 'curve';
-    if (D < L * 0.35 && L > 90) shape = 'circle';
-    else if (straightness > 0.9) shape = 'line';
+    if (b.diag >= 30 && strokeClosed(pts, b.diag)) {
+      const corners = cornerCount(pts);
+      const hug = bboxHugOf(pts, b);
+      if (hug < 0.06) shape = 'square'; // hugs its box tight — a box, whatever the corners read
+      else if (corners === 3) shape = 'triangle';
+      else if (corners === 4 || (corners === 5 && hug < 0.15)) shape = 'square';
+      else if (corners <= 2) shape = 'circle'; // closed and smooth — round enough
+      // anything else stays a closed scribble → curve
+    } else if (L && D / L > 0.88) {
+      shape = 'line';
+    }
     const angle = Math.atan2(trace[trace.length - 1][1] - trace[0][1], trace[trace.length - 1][0] - trace[0][0]);
-    // keep the actual motion for curves
-    const step = Math.max(1, Math.floor(trace.length / 12));
-    const path = trace.filter((_, i) => i % step === 0 || i === trace.length - 1)
+    // keep the actual motion for curves (resampled, so it's smooth)
+    const path = pts.filter((_, i) => i % 8 === 0 || i === pts.length - 1)
       .map(([x, y]) => [
-        Math.round(((x - x0) / w) * 100) / 100,
-        Math.round(((y - y0) / h) * 100) / 100,
+        Math.round(((x - b.x0) / w) * 100) / 100,
+        Math.round(((y - b.y0) / h) * 100) / 100,
       ]);
     const r = stage.getBoundingClientRect();
     return {
-      x: x0 + w / 2 + r.left,
-      y: y0 + h / 2 + r.top,
+      x: b.x0 + w / 2 + r.left,
+      y: b.y0 + h / 2 + r.top,
       shape,
       size: Math.round(clamp(Math.hypot(w, h) * 0.72, 30, 130)),
       angle: Math.round(angle * 100) / 100,
@@ -610,7 +833,6 @@
       title,
       shape: pendingCreate.shape,
       color: pendingCreate.color,
-      layer: 'today',
       x: f.x, y: f.y,
       size: pendingCreate.size,
       angle: pendingCreate.angle,
@@ -650,14 +872,15 @@
   });
 
   $('#addBtn').addEventListener('click', () => {
-    // find a quiet spot for a new element
+    // find a quiet spot for a new element, on the screen you're looking at
     const r = stage.getBoundingClientRect();
+    const vy0 = viewTop();
     const rnd = Math.random;
     let best = null, bestScore = -1;
     for (let i = 0; i < 14; i++) {
       const fx = 0.15 + rnd() * 0.7, fy = 0.18 + rnd() * 0.6;
       const near = tasks.filter(isVisible)
-        .reduce((m, t) => Math.min(m, Math.hypot(t.x - fx, t.y - fy)), 1);
+        .reduce((m, t) => Math.min(m, Math.hypot(t.x - fx, t.y - vy0 - fy)), 1);
       if (near > bestScore) { bestScore = near; best = [fx, fy]; }
     }
     startCreate({
@@ -674,7 +897,7 @@
     t.doneAt = Date.now();
     if (angle != null) {
       t.x = clamp(t.x + Math.cos(angle) * 0.11, 0.05, 0.95);
-      t.y = clamp(t.y + Math.sin(angle) * 0.11, 0.08, 0.9);
+      t.y = clamp(t.y + Math.sin(angle) * 0.11, 0.08, yMax());
     }
     saveTasks();
     const el = markEls.get(t.id);
@@ -743,7 +966,8 @@
     if (!poly || poly.length < 8) { exitLasso(); return; }
     const selected = tasks.filter((t) => {
       if (!isVisible(t) || t.done) return false;
-      return pointInPoly(t.x * stage.clientWidth, t.y * stage.clientHeight, poly);
+      // lasso points are viewport px; marks live in the scrolled world
+      return pointInPoly(t.x * stage.clientWidth, t.y * stage.clientHeight - scrollY, poly);
     });
     exitLasso();
     if (selected.length < 2) {
@@ -764,9 +988,6 @@
 
   // ---------- inspect ----------
 
-  const EYE_OPEN = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg>';
-  const EYE_OFF = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><path d="M4 20 20 4"/></svg>';
-
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
@@ -781,7 +1002,7 @@
         <div class="insp-title" id="inspTitle">${escapeHtml(t.title)}</div>
         <button class="sheet-x" data-close aria-label="Close">✕</button>
       </div>
-      <p class="insp-meta">${SHAPE_META[t.shape]} · ${LAYERS.find((l) => l.id === t.layer)?.name || t.layer}${t.done ? ' · resolved' : ''}</p>
+      <p class="insp-meta">${SHAPE_META[t.shape]} · ${COLOR_MEANING[t.color]}${t.done ? ' · resolved' : ''}</p>
       <ul class="subtasks" id="subList">
         ${t.subs.map((s, i) => `
           <li class="subtask ${s.done ? 'done' : ''}">
@@ -800,12 +1021,6 @@
         <span class="insp-label">Weight</span>
         <div class="chip-row">
           ${['low', 'med', 'high'].map((p) => `<button class="chip ${t.priority === p ? 'on' : ''}" data-pri="${p}">${p === 'med' ? 'Medium' : p[0].toUpperCase() + p.slice(1)}</button>`).join('')}
-        </div>
-      </div>
-      <div class="insp-row">
-        <span class="insp-label">Layer</span>
-        <div class="chip-row">
-          ${LAYERS.map((l) => `<button class="chip ${t.layer === l.id ? 'on' : ''}" data-layer="${l.id}">${l.name}</button>`).join('')}
         </div>
       </div>
       <div class="insp-row">
@@ -892,25 +1107,20 @@
         inspect.querySelectorAll('[data-pri]').forEach((x) => x.classList.toggle('on', x === b));
         rerender();
       }));
-    inspect.querySelectorAll('[data-layer]').forEach((b) =>
-      b.addEventListener('click', () => {
-        t.layer = b.dataset.layer;
-        inspect.querySelectorAll('[data-layer]').forEach((x) => x.classList.toggle('on', x === b));
-        saveTasks();
-        if (!isVisible(t)) { closeSheets(); renderMarks(); }
-      }));
     inspect.querySelectorAll('.mini-colors [data-color]').forEach((b) =>
       b.addEventListener('click', () => {
         t.color = b.dataset.color;
         inspect.querySelectorAll('.mini-colors [data-color]').forEach((x) => x.classList.toggle('on', x === b));
         $('.insp-dot').style.background = COLORS[t.color];
         rerender();
+        if (!isVisible(t)) { closeSheets(); renderMarks(); } // recolored into a hidden context
       }));
     inspect.querySelectorAll('.mini-shapes [data-shape]').forEach((b) =>
       b.addEventListener('click', () => {
         t.shape = b.dataset.shape;
         inspect.querySelectorAll('.mini-shapes [data-shape]').forEach((x) => x.classList.toggle('on', x === b));
         rerender();
+        if (!isVisible(t)) { closeSheets(); renderMarks(); } // reshaped into a hidden kind
       }));
 
     $('#inspDone').addEventListener('click', () => {
@@ -936,58 +1146,65 @@
     inspect.querySelector('[data-close]').addEventListener('click', closeSheets);
   }
 
-  // ---------- layers ----------
+  // ---------- filter ----------
+  // color and shape are the only categories: one row of each, all toggleable
 
-  function buildLayersSheet() {
-    const ul = $('#layerList');
-    ul.textContent = '';
-    const rows = [...LAYERS, { id: 'completed', name: 'Completed', color: '#c8c2b2' }];
-    for (const L of rows) {
-      const li = document.createElement('li');
-      li.className = 'layer-row';
-      const dot = document.createElement('span');
-      dot.className = 'layer-dot' + (L.id === 'completed' ? ' sq' : '');
-      dot.style.background = L.color;
-      const name = document.createElement('span');
-      name.className = 'layer-name';
-      name.textContent = L.name;
-      const count = document.createElement('span');
-      count.className = 'layer-count';
-      const n = L.id === 'completed'
-        ? tasks.filter((t) => t.done).length
-        : tasks.filter((t) => t.layer === L.id && !t.done).length;
-      count.textContent = n || '';
-      const eye = document.createElement('button');
-      eye.className = 'eye-btn' + (vis[L.id] ? '' : ' off');
-      eye.setAttribute('aria-label', `${vis[L.id] ? 'Hide' : 'Show'} ${L.name}`);
-      eye.innerHTML = vis[L.id] ? EYE_OPEN : EYE_OFF;
-      eye.addEventListener('click', () => {
-        vis[L.id] = !vis[L.id];
+  function buildFilterSheet() {
+    const cr = $('#filterColors');
+    cr.innerHTML = Object.keys(COLORS).map((c) =>
+      `<button class="color-pick ${vis.colors[c] ? 'on' : ''}" data-c="${c}" style="background:${COLORS[c]}"
+        title="${COLOR_MEANING[c]}" aria-label="${vis.colors[c] ? 'Hide' : 'Show'} ${COLOR_MEANING[c]}"></button>`).join('');
+    cr.querySelectorAll('[data-c]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const c = b.dataset.c;
+        vis.colors[c] = !vis.colors[c];
         saveVis();
-        eye.classList.toggle('off', !vis[L.id]);
-        eye.innerHTML = vis[L.id] ? EYE_OPEN : EYE_OFF;
+        b.classList.toggle('on', vis.colors[c]);
+        b.setAttribute('aria-label', `${vis.colors[c] ? 'Hide' : 'Show'} ${COLOR_MEANING[c]}`);
         renderMarks();
-      });
-      li.append(dot, name, count, eye);
-      ul.appendChild(li);
-    }
+      }));
+
+    const sr = $('#filterShapes');
+    sr.innerHTML = SHAPES.map((s) =>
+      `<button class="shape-pick ${vis.shapes[s] ? 'on' : ''}" data-s="${s}"
+        title="${SHAPE_META[s]}" aria-label="${vis.shapes[s] ? 'Hide' : 'Show'} ${s} — ${SHAPE_META[s]}">${shapeIcon(s)}</button>`).join('');
+    sr.querySelectorAll('[data-s]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const s = b.dataset.s;
+        vis.shapes[s] = !vis.shapes[s];
+        saveVis();
+        b.classList.toggle('on', vis.shapes[s]);
+        b.setAttribute('aria-label', `${vis.shapes[s] ? 'Hide' : 'Show'} ${s} — ${SHAPE_META[s]}`);
+        renderMarks();
+      }));
+
+    $('#filterDone').classList.toggle('on', vis.completed);
   }
+
+  $('#filterDone').addEventListener('click', () => {
+    vis.completed = !vis.completed;
+    saveVis();
+    $('#filterDone').classList.toggle('on', vis.completed);
+    renderMarks();
+  });
 
   // ---------- balance ----------
 
+  // balance reads the screen you're looking at; cy is viewport-local (0..1)
   function composition() {
-    const open = tasks.filter((t) => isVisible(t) && !t.done);
+    const vy0 = viewTop();
+    const open = tasks.filter((t) => isVisible(t) && !t.done && inView(t));
     if (!open.length) return null;
     let M = 0, mx = 0, my = 0;
     for (const t of open) {
       const m = Math.pow(t.size, 1.6);
-      M += m; mx += m * t.x; my += m * t.y;
+      M += m; mx += m * t.x; my += m * (t.y - vy0);
     }
     const cx = mx / M, cy = my / M;
     let disp = 0;
     for (const t of open) {
       const m = Math.pow(t.size, 1.6);
-      disp += m * (Math.pow(t.x - cx, 2) + Math.pow(t.y - cy, 2));
+      disp += m * (Math.pow(t.x - cx, 2) + Math.pow(t.y - vy0 - cy, 2));
     }
     disp = Math.sqrt(disp / M);
     return { cx, cy, disp, n: open.length, offset: Math.hypot(cx - 0.5, cy - 0.53) };
@@ -1031,12 +1248,15 @@
   function harmonize() {
     const c = composition();
     if (!c) return;
+    const vy0 = viewTop();
     const dx = (0.5 - c.cx) * 0.85;
     const dy = (0.53 - c.cy) * 0.85;
     const pull = c.disp > 0.3 ? 0.16 : 0;
-    for (const t of tasks.filter((x) => isVisible(x) && !x.done)) {
+    // settle only the screen in view — the rest of the world stays composed
+    for (const t of tasks.filter((x) => isVisible(x) && !x.done && inView(x))) {
+      const ly = t.y - vy0;
       t.x = clamp(t.x + dx + (c.cx - t.x) * pull, 0.08, 0.92);
-      t.y = clamp(t.y + dy + (c.cy - t.y) * pull, 0.12, 0.86);
+      t.y = vy0 + clamp(ly + dy + (c.cy - ly) * pull, 0.12, 0.86);
       const el = markEls.get(t.id);
       if (el) { el.classList.add('settling'); positionMark(el, t); }
     }
@@ -1081,7 +1301,12 @@
     if (overdue) out.push(`The ${overdue.color} ${overdue.shape} slipped past its date.`);
     const tomorrow = open.find((t) => t.due === localISO(1));
     if (tomorrow) out.push(`The ${tomorrow.color} ${tomorrow.shape} is due tomorrow.`);
-    const drifting = open.filter((t) => t.x < 0.14 || t.x > 0.86 || t.y < 0.16 || t.y > 0.84);
+    const vy0 = viewTop();
+    const drifting = open.filter((t) => {
+      if (!inView(t)) return false;
+      const ly = t.y - vy0;
+      return t.x < 0.14 || t.x > 0.86 || ly < 0.16 || ly > 0.84;
+    });
     if (drifting.length >= 2) out.push(`${drifting.length} tasks are drifting to the edges.`);
     const c = composition();
     if (c && c.n >= 3) {
@@ -1135,7 +1360,7 @@
     closeSheets();
     if (mode === 'lasso') exitLasso();
     balanceVeil.hidden = true;
-    if (sheet === layersSheet) buildLayersSheet();
+    if (sheet === filterSheet) buildFilterSheet();
     if (sheet === viewSheet) buildViewSheet();
     backdrop.hidden = false;
     sheet.hidden = false;
@@ -1144,16 +1369,16 @@
     backdrop.hidden = true;
     nameSheet.hidden = true;
     inspect.hidden = true;
-    layersSheet.hidden = true;
+    filterSheet.hidden = true;
     viewSheet.hidden = true;
   }
-  $('#layersBtn').addEventListener('click', () => openSheet(layersSheet));
+  $('#filterBtn').addEventListener('click', () => openSheet(filterSheet));
   $('#viewBtn').addEventListener('click', () => openSheet(viewSheet));
   backdrop.addEventListener('click', () => {
     if (pendingCreate) cancelCreate();
     else closeSheets();
   });
-  document.querySelectorAll('#layersSheet [data-close], #viewSheet [data-close]').forEach((b) =>
+  document.querySelectorAll('#filterSheet [data-close], #viewSheet [data-close]').forEach((b) =>
     b.addEventListener('click', closeSheets));
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -1203,6 +1428,9 @@
     try {
       tasks = JSON.parse(localStorage.getItem(LS.tasks) || '[]');
     } catch { tasks = []; }
+    // migrate: layers are gone — color and shape are the only categories now
+    for (const t of tasks) delete t.layer;
+    fitWorld();
     saveTasks();
   }
 
@@ -1225,6 +1453,15 @@
   paintBackground();
   sizeScratch();
   renderMarks();
-  window.addEventListener('resize', () => { sizeScratch(); buildRings(); });
+  window.addEventListener('resize', () => {
+    sizeScratch();
+    syncWorldSize();
+    for (const t of tasks) {
+      const el = markEls.get(t.id);
+      if (el) positionMark(el, t);
+    }
+    buildRings();
+    setScroll(scrollY);
+  });
   pulse();
 })();

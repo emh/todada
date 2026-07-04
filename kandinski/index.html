@@ -8,19 +8,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
 
   <!-- The composition. Each shape is a task. -->
   <div class="stage" id="stage">
-    <div class="rings" id="rings"></div>
-    <div class="marks" id="marks"></div>
+    <div class="world" id="world">
+      <div class="rings" id="rings"></div>
+      <div class="marks" id="marks"></div>
+    </div>
     <canvas class="scratch" id="scratch"></canvas>
     <div class="hint" id="hint" hidden>
       <p>This is not a list.<br/>It is a composition.</p>
       <p class="hint-sub">Tap for a point. Drag to create a shape.</p>
     </div>
+    <div class="scrollbar" id="scrollbar" hidden></div>
   </div>
 
   <header class="topbar">
@@ -29,9 +32,9 @@
   </header>
 
   <nav class="bottombar" id="bottombar">
-    <button class="bar-btn" id="layersBtn" aria-label="Layers">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3 21 8l-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>
-      <span>Layers</span>
+    <button class="bar-btn" id="filterBtn" aria-label="Filter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+      <span>Filter</span>
     </button>
     <button class="bar-btn" id="focusBtn" aria-label="Focus">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>
@@ -70,14 +73,20 @@
   <!-- inspect sheet -->
   <section class="sheet" id="inspect" hidden></section>
 
-  <!-- layers sheet -->
-  <section class="sheet" id="layersSheet" hidden>
+  <!-- filter sheet: color and shape are the categories -->
+  <section class="sheet" id="filterSheet" hidden>
     <div class="sheet-head">
-      <h2>Layers</h2>
+      <h2>Filter</h2>
       <button class="sheet-x" data-close aria-label="Close">✕</button>
     </div>
-    <ul class="layer-list" id="layerList"></ul>
-    <p class="sheet-note">Each layer is a different composition.</p>
+    <h3 class="sheet-sub">Color — the context</h3>
+    <div class="pick-row filter-row" id="filterColors"></div>
+    <h3 class="sheet-sub">Shape — the kind of work</h3>
+    <div class="pick-row filter-row" id="filterShapes"></div>
+    <div class="filter-done-row">
+      <button class="chip" id="filterDone">Show resolved</button>
+    </div>
+    <p class="sheet-note">Tap to hide or show. Any mix can be on.</p>
   </section>
 
   <!-- view sheet: daily palette, notices, symbol guide -->
@@ -123,6 +132,7 @@
         <li><b>Flick</b> to resolve — it fades into the background.</li>
         <li><b>Circle</b> elements to relate them. They move as one.</li>
         <li><b>Balance</b> shows the weight of your day. Harmonize settles it.</li>
+        <li><b>Two fingers</b> to scroll — the canvas grows as you compose.</li>
       </ul>
       <button class="ob-go" id="onboardGo">Begin the composition</button>
     </div>
@@ -133,6 +143,6 @@
     <button id="toastAction" hidden></button>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
