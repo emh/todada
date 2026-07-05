@@ -58,7 +58,7 @@ html, body {
 .top-btn svg { width: 22px; height: 22px; }
 .top-btn:active { scale: 0.9; }
 .top-btn.active { background: var(--ink); color: var(--paper); }
-.layer-title {
+.day-title {
   font-size: 17px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -164,8 +164,9 @@ html, body {
 .divider.v::after { width: var(--lw); }
 .divider.h::after { height: var(--lw); }
 
-.frame.splitting .block:not(.done) { cursor: cell; }
-.frame.splitting .block:not(.done):hover { filter: brightness(1.06); }
+.block.filtered { cursor: default; }
+.frame.splitting .block:not(.done):not(.filtered) { cursor: cell; }
+.frame.splitting .block:not(.done):not(.filtered):hover { filter: brightness(1.06); }
 
 .mode-hint {
   position: absolute;
@@ -475,28 +476,13 @@ html, body {
   touch-action: manipulation;
 }
 
-/* layers */
+/* filter — on = visible, off fades to almost open space */
 
-.layer-list { list-style: none; }
-.layer-row {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  width: 100%;
-  padding: 11px 6px;
-  border: none;
-  background: transparent;
-  font-family: inherit;
-  color: var(--ink);
-  cursor: pointer;
-  text-align: left;
-  touch-action: manipulation;
-}
-.layer-row.current { background: rgba(20, 18, 14, 0.06); }
-.layer-sw { width: 18px; height: 18px; border: 2px solid var(--ink); flex: none; }
-.layer-name { flex: 1; font-size: 15px; font-weight: 700; }
-.layer-count { font-size: 13px; font-weight: 700; color: rgba(20, 18, 14, 0.45); }
-.layer-check { font-size: 14px; font-weight: 800; }
+.filter-cats .cat-pick { width: 38px; height: 38px; }
+.filter-cats .cat-pick.on { border-width: 2px; border-color: var(--ink); }
+.filter-cats .cat-pick.on::after { display: none; }
+.filter-cats .cat-pick:not(.on) { opacity: 0.28; }
+.filter-done-row { margin-top: 18px; display: flex; }
 
 /* menu: structures */
 

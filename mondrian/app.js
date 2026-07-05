@@ -5,8 +5,8 @@
   // ---------- constants ----------
 
   const LS = {
-    layers: 'mond.layers',
-    layer: 'mond.layer',
+    tree: 'mond.tree',
+    vis: 'mond.vis',
     struct: 'mond.struct',
   };
 
@@ -25,14 +25,6 @@
     yellow: { hex: '#f2c500', label: 'personal / quick' },
     white: { hex: '#f6f3ec', label: 'open / neutral' },
   };
-
-  const LAYER_META = [
-    { id: 'today', name: 'Today' },
-    { id: 'work', name: 'Work' },
-    { id: 'home', name: 'Home' },
-    { id: 'ideas', name: 'Ideas' },
-    { id: 'waiting', name: 'Waiting' },
-  ];
 
   const PRI_W = { high: 3, med: 2, low: 1 };
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -111,10 +103,9 @@
 
   // ---------- state ----------
 
-  let layers = null; // { layerId: tree }
-  let layerId = localStorage.getItem(LS.layer) || 'today';
   let structId = localStorage.getItem(LS.struct) || 'structured';
   let tree = null;
+  let vis = { red: true, blue: true, yellow: true, white: true, done: true };
   let splitMode = false;
   let pending = null; // { type: 'split'|'fill'|'merge', leafId, revert, presetSubs, prefillColor }
   const blockEls = new Map();
@@ -130,7 +121,7 @@
   const nameCard = $('#nameCard');
   const nameInput = $('#nameInput');
   const inspect = $('#inspect');
-  const layersCard = $('#layersCard');
+  const filterCard = $('#filterCard');
   const menuCard = $('#menuCard');
   const dragGhost = $('#dragGhost');
   const toastEl = $('#toast');
@@ -153,9 +144,11 @@
     return `${MONTHS[m - 1]} ${d}`;
   }
   function save() {
-    localStorage.setItem(LS.layers, JSON.stringify(layers));
-    localStorage.setItem(LS.layer, layerId);
+    localStorage.setItem(LS.tree, JSON.stringify(tree));
     localStorage.setItem(LS.struct, structId);
+  }
+  function saveVis() {
+    localStorage.setItem(LS.vis, JSON.stringify(vis));
   }
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -172,6 +165,9 @@
       createdAt: Date.now(),
     };
   }
+
+  // a filtered-out block rests as open space — the composition keeps its shape
+  const isVisible = (t) => vis[t.color] !== false && (!t.done || vis.done !== false);
 
   // ---------- render ----------
 
@@ -213,14 +209,16 @@
       const sizeClass = (pw * ph < 5200 || pw < 62 || ph < 44) ? 'tiny'
         : (pw * ph < 11000 || pw < 92 || ph < 62) ? 'small' : '';
       const t = node.task;
+      const filtered = t && !isVisible(t);
       el.className = 'block'
-        + (t ? (t.done ? ' done' : ` ${t.color}`) : ' open')
+        + (t && !filtered ? (t.done ? ' done' : ` ${t.color}`) : ' open')
+        + (filtered ? ' filtered' : '')
         + (sizeClass ? ' ' + sizeClass : '');
       el.style.left = `calc(${rect.x * 100}% + 3px)`;
       el.style.top = `calc(${rect.y * 100}% + 3px)`;
       el.style.width = `calc(${rect.w * 100}% - 6px)`;
       el.style.height = `calc(${rect.h * 100}% - 6px)`;
-      el.innerHTML = blockContent(t, sizeClass);
+      el.innerHTML = filtered ? '' : blockContent(t, sizeClass);
     }
     for (const [id, el] of blockEls) {
       if (!seen.has(id)) { el.remove(); blockEls.delete(id); }
@@ -256,55 +254,28 @@
     if (!animate) requestAnimationFrame(() => grid.classList.remove('no-anim'));
   }
 
-  // ---------- layers ----------
+  // ---------- filter ----------
 
-  function setLayer(id, rerender = true) {
-    layerId = id;
-    tree = layers[id];
-    $('#layerTitle').textContent = LAYER_META.find((l) => l.id === id)?.name || id;
-    if (rerender) {
-      blockEls.forEach((el) => el.remove());
-      divEls.forEach((el) => el.remove());
-      blockEls.clear();
-      divEls.clear();
-      render(false);
-    }
-    save();
+  function buildFilterCard() {
+    const row = $('#filterRow');
+    row.innerHTML = Object.keys(CATS).map((c) =>
+      `<button class="cat-pick ${vis[c] !== false ? 'on' : ''}" data-c="${c}" style="background:${CATS[c].hex}" title="${CATS[c].label}" aria-label="${c} — ${CATS[c].label}"></button>`).join('');
+    row.querySelectorAll('[data-c]').forEach((b) =>
+      b.addEventListener('click', () => {
+        vis[b.dataset.c] = vis[b.dataset.c] === false;
+        b.classList.toggle('on', vis[b.dataset.c] !== false);
+        saveVis();
+        render();
+      }));
+    $('#filterDone').classList.toggle('on', vis.done !== false);
   }
 
-  function buildLayersCard() {
-    const ul = $('#layerList');
-    ul.textContent = '';
-    for (const Lm of LAYER_META) {
-      const open = allTaskLeaves(layers[Lm.id]).filter((n) => !n.task.done).length;
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.className = 'layer-row' + (Lm.id === layerId ? ' current' : '');
-      const sw = document.createElement('span');
-      sw.className = 'layer-sw';
-      // mini color: dominant category of the layer
-      const cats = allTaskLeaves(layers[Lm.id]).filter((n) => !n.task.done).map((n) => n.task.color);
-      const dom = ['red', 'blue', 'yellow'].map((c) => [c, cats.filter((x) => x === c).length])
-        .sort((a, b) => b[1] - a[1])[0];
-      sw.style.background = dom && dom[1] ? CATS[dom[0]].hex : CATS.white.hex;
-      const name = document.createElement('span');
-      name.className = 'layer-name';
-      name.textContent = Lm.name;
-      const count = document.createElement('span');
-      count.className = 'layer-count';
-      count.textContent = open || '';
-      btn.append(sw, name, count);
-      if (Lm.id === layerId) {
-        const chk = document.createElement('span');
-        chk.className = 'layer-check';
-        chk.textContent = '✓';
-        btn.appendChild(chk);
-      }
-      btn.addEventListener('click', () => { setLayer(Lm.id); closeCards(); });
-      li.appendChild(btn);
-      ul.appendChild(li);
-    }
-  }
+  $('#filterDone').addEventListener('click', () => {
+    vis.done = vis.done === false;
+    $('#filterDone').classList.toggle('on', vis.done !== false);
+    saveVis();
+    render();
+  });
 
   // ---------- split / fill / merge / remove ----------
 
@@ -324,7 +295,7 @@
     const internal = { id: uid(), dir, ratio: 0.55, kids: [kept, newLeaf] };
     const parent = findParent(tree, leaf.id);
     if (parent) replaceChild(parent, leaf.id, internal);
-    else { layers[layerId] = internal; tree = internal; }
+    else tree = internal;
     render();
     openNameCard({ type: 'split', leafId: newLeaf.id, revert });
   }
@@ -366,8 +337,7 @@
 
   function cancelPending() {
     if (pending && pending.revert) {
-      layers[layerId] = JSON.parse(pending.revert);
-      tree = layers[layerId];
+      tree = JSON.parse(pending.revert);
       render();
     }
     pending = null;
@@ -386,7 +356,7 @@
     const sibling = parent.kids[0].id === leaf.id ? parent.kids[1] : parent.kids[0];
     const grand = findParent(tree, parent.id);
     if (grand) replaceChild(grand, parent.id, sibling);
-    else { layers[layerId] = sibling; tree = sibling; }
+    else tree = sibling;
     save();
     render();
   }
@@ -401,7 +371,7 @@
     const merged = L(null);
     const grand = findParent(tree, parent.id);
     if (grand) replaceChild(grand, parent.id, merged);
-    else { layers[layerId] = merged; tree = merged; }
+    else tree = merged;
     render();
     openNameCard({
       type: 'merge',
@@ -473,7 +443,6 @@
       s = slots();
     }
     s.forEach((slot, i) => { slot.node.task = tasks[i] || null; });
-    layers[layerId] = newTree;
     tree = newTree;
     save();
     blockEls.forEach((el) => el.remove());
@@ -509,11 +478,9 @@
         run: () => { applyStructure(structId); closeCards(); showToast('Redistributed. Balanced and clear.'); },
       });
     }
-    for (const Lm of LAYER_META) {
-      const n = allTaskLeaves(layers[Lm.id])
-        .filter((x) => !x.task.done && x.task.due && x.task.due < localISO(0)).length;
-      if (n) out.push({ text: `${n} ${Lm.name.toLowerCase()} ${n === 1 ? 'block is' : 'blocks are'} overdue. Review and reprioritize.` });
-    }
+    const n = allTaskLeaves(tree)
+      .filter((x) => !x.task.done && x.task.due && x.task.due < localISO(0)).length;
+    if (n) out.push({ text: `${n} ${n === 1 ? 'block is' : 'blocks are'} overdue. Review and reprioritize.` });
     return out;
   }
 
@@ -738,6 +705,7 @@
     if (!blockEl) return;
     const leaf = findLeaf(tree, blockEl.dataset.id);
     if (!leaf) return;
+    if (leaf.task && !isVisible(leaf.task)) return; // filtered blocks rest untouched
     gest = {
       type: 'block',
       id: e.pointerId,
@@ -797,7 +765,7 @@
     } else if (gest.sub === 'drag') {
       dragGhost.style.left = e.clientX + 'px';
       dragGhost.style.top = e.clientY + 'px';
-      const under = document.elementFromPoint(e.clientX, e.clientY)?.closest('.block');
+      const under = document.elementFromPoint(e.clientX, e.clientY)?.closest('.block:not(.filtered)');
       if (gest.overEl && gest.overEl !== under) gest.overEl.classList.remove('drag-over');
       if (under && under !== gest.el) {
         under.classList.add('drag-over');
@@ -894,7 +862,7 @@
   function openCard(card) {
     closeCards();
     exitSplitMode();
-    if (card === layersCard) buildLayersCard();
+    if (card === filterCard) buildFilterCard();
     if (card === menuCard) buildMenuCard();
     backdrop.hidden = false;
     card.hidden = false;
@@ -903,10 +871,10 @@
     backdrop.hidden = true;
     nameCard.hidden = true;
     inspect.hidden = true;
-    layersCard.hidden = true;
+    filterCard.hidden = true;
     menuCard.hidden = true;
   }
-  $('#layersBtn').addEventListener('click', () => openCard(layersCard));
+  $('#filterBtn').addEventListener('click', () => openCard(filterCard));
   $('#menuBtn').addEventListener('click', () => openCard(menuCard));
   $('#nameSave').addEventListener('click', commitName);
   $('#nameCancel').addEventListener('click', cancelPending);
@@ -918,7 +886,7 @@
     if (pending) cancelPending();
     else closeCards();
   });
-  document.querySelectorAll('#layersCard [data-close], #menuCard [data-close]').forEach((b) =>
+  document.querySelectorAll('#filterCard [data-close], #menuCard [data-close]').forEach((b) =>
     b.addEventListener('click', closeCards));
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -974,22 +942,48 @@
 
   // ---------- boot ----------
 
-  function emptyLayers() {
-    // each layer starts as one uninterrupted block of open space
-    const out = {};
-    for (const Lm of LAYER_META) out[Lm.id] = L(null);
-    return out;
+  // give a task the largest open slot, splitting the largest block if none is free
+  function placeTask(task) {
+    const leaves = [], divs = [], rects = {};
+    walk(tree, { x: 0, y: 0, w: 1, h: 1 }, leaves, divs, rects);
+    leaves.sort((a, b) => (b.rect.w * b.rect.h) - (a.rect.w * a.rect.h));
+    const open = leaves.find((l) => !l.node.task);
+    if (open) { open.node.task = task; return; }
+    const big = leaves[0];
+    const dir = big.rect.w >= big.rect.h ? 'v' : 'h';
+    const internal = { id: uid(), dir, ratio: 0.5, kids: [{ id: big.node.id, task: big.node.task }, L(task)] };
+    const parent = findParent(tree, big.node.id);
+    if (parent) replaceChild(parent, big.node.id, internal);
+    else tree = internal;
   }
 
   function load() {
     try {
-      const raw = localStorage.getItem(LS.layers);
-      if (raw) {
-        layers = JSON.parse(raw);
-        if (LAYER_META.every((l) => layers[l.id])) return;
-      }
+      const raw = localStorage.getItem(LS.tree);
+      if (raw) tree = JSON.parse(raw);
     } catch { /* fall through */ }
-    layers = emptyLayers();
+    if (!tree) {
+      // migrate pre-filter data: layers were separate compositions — fold them into one
+      try {
+        const old = JSON.parse(localStorage.getItem('mond.layers'));
+        if (old && typeof old === 'object') {
+          tree = old[localStorage.getItem('mond.layer')] || old.today || Object.values(old)[0];
+          for (const t of Object.values(old)) {
+            if (t === tree) continue;
+            for (const leaf of allTaskLeaves(t)) placeTask(leaf.task);
+          }
+        }
+      } catch { /* fall through */ }
+    }
+    if (!tree) tree = L(null);
+    localStorage.removeItem('mond.layers');
+    localStorage.removeItem('mond.layer');
+    try {
+      const v = JSON.parse(localStorage.getItem(LS.vis));
+      if (v && typeof v === 'object') {
+        for (const k of Object.keys(vis)) if (typeof v[k] === 'boolean') vis[k] = v[k];
+      }
+    } catch { /* ignore */ }
   }
 
   // ---------- onboarding ----------
@@ -1005,8 +999,9 @@
   }
 
   load();
-  setLayer(layers[layerId] ? layerId : 'today');
   save();
+  saveVis();
+  render(false);
   window.addEventListener('resize', () => render(false));
   pulse();
 })();

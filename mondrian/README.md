@@ -33,14 +33,14 @@ Blocks show title + due date (⚠ when overdue), a corner flag for high priority
 - **Merge & group** — inspect offers *"Merge with [neighbor]"* for sibling blocks: the two collapse into one project block, and both former titles become its subtasks (e.g. *Project Research* + *Client Presentation* → *Website Redesign (Project)*).
 - **Daily structure** (⋯ menu) — Structured, Focused, Sparse, or Intensive grid templates, each with a generated thumbnail. Applying one re-lays your tasks into the template: **the biggest slots go to the highest priority**, and the grid auto-splits if you have more tasks than slots.
 - **Balance** — the app computes the weighted center of mass of the colored blocks; when the composition leans too far it warns *"Your composition is becoming unbalanced. Consider redistributing your tasks."* with a one-tap **Redistribute**.
-- **Smart notices** — *"2 work blocks are overdue. Review and reprioritize."* — computed across all layers, listed in the menu, one toasted on load.
-- **Layers** (☰) — Today, Work, Home, Ideas, Waiting: five independent compositions with open counts and dominant-color swatches.
+- **Smart notices** — *"2 blocks are overdue. Review and reprioritize."* — listed in the menu, one toasted on load.
+- **Filter** (top left) — color *is* the category: four toggleable swatches (red, blue, yellow, white) plus a "Show completed" chip, any mix at once. A filtered-out block rests as open space — the composition keeps its shape, and the block is inert until its color returns.
 - **Clear completed** — turns every white ✓ block into open space in one tap.
 
 ## Storage
 
-`localStorage` keys: `mond.layers` (the full split trees, tasks embedded), `mond.layer`, `mond.struct`, `mond.seen` (first-run intro), `mond.v` (schema version — bumping it wipes stale data on next load). Each layer starts as one uninterrupted block of open space, with an onboarding card explaining the gestures; clear the keys to reset.
+`localStorage` keys: `mond.tree` (the full split tree, tasks embedded), `mond.vis` (which colors are visible), `mond.struct`, `mond.seen` (first-run intro), `mond.v` (schema version — bumping it wipes stale data on next load). The day starts as one uninterrupted block of open space, with an onboarding card explaining the gestures; clear the keys to reset. (Pre-filter `mond.layers` data is folded into the single composition on first load.)
 
 ## Not implemented (from the mock)
 
-Long-press quick menu (tap-inspect covers it), due *times* (dates only), and new-layer creation.
+Long-press quick menu (tap-inspect covers it) and due *times* (dates only). The mock's layers were replaced by the color filter — one day, one composition.

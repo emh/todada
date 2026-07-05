@@ -8,15 +8,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=4" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
 
   <header class="topbar">
-    <button class="top-btn" id="layersBtn" aria-label="Layers">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    <button class="top-btn" id="filterBtn" aria-label="Filter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
     </button>
-    <h1 class="layer-title" id="layerTitle">Today</h1>
+    <h1 class="day-title">Today</h1>
     <div class="top-right">
       <button class="top-btn" id="splitBtn" aria-label="Add a task — split a block">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -52,14 +52,18 @@
   <!-- inspect card -->
   <section class="card" id="inspect" hidden></section>
 
-  <!-- layers card -->
-  <section class="card" id="layersCard" hidden>
+  <!-- filter card: color is the category -->
+  <section class="card" id="filterCard" hidden>
     <div class="card-head">
-      <h2>Layers</h2>
+      <h2>Filter</h2>
       <button class="card-x" data-close aria-label="Close">✕</button>
     </div>
-    <ul class="layer-list" id="layerList"></ul>
-    <p class="card-note">Each layer has its own composition.</p>
+    <p class="card-label">Category</p>
+    <div class="cat-row filter-cats" id="filterRow"></div>
+    <div class="filter-done-row">
+      <button class="chip" id="filterDone">Show completed</button>
+    </div>
+    <p class="card-note">Tap to hide or show. Hidden colors rest as open space.</p>
   </section>
 
   <!-- menu card: daily structure + notices -->
@@ -100,6 +104,6 @@
     <button id="toastAction" hidden></button>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
